@@ -1,7 +1,7 @@
-## NLP - AT2 - Group 9
+# NLP - AT2 - Group 9
 
 
-**Chroma DB credentials**
+### *Chroma DB credentials*
 
 Header and client ID
 
