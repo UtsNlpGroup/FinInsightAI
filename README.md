@@ -3,4 +3,4 @@
 
 ### *Chroma DB credentials*
 
-Header and client ID -> .env
+Header and client ID: data/.env
