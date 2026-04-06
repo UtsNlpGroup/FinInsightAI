@@ -4,7 +4,7 @@ An AI-powered financial insights application built with React, TypeScript, and T
 
 ## Live Demo
 
-The frontend is deployed to GitHub Pages: **[https://sebas102507.github.io/finsightAI/](https://sebas102507.github.io/finsightAI/)**
+The frontend is deployed to GitHub Pages: **[https://utsnlpgroup.github.io/FinInsightAI/](https://utsnlpgroup.github.io/FinInsightAI/)**
 
 ## Project Structure
 
