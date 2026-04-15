@@ -1,0 +1,37 @@
+{
+    "company": "Apple",
+    "model": "gpt-oss",
+    "timestamp": "20260413_170259",
+    "results": [
+        {
+            "question": "What are the company\u2019s core business segments and primary revenue drivers?",
+            "section": "business",
+            "answer": "The company\u2019s core business is divided into hardware and services, with its revenue largely driven by the sale of smartphones, personal computers, tablets, wearables, accessories and related services. Geographic segments\u2014Americas, Europe, Greater China, Japan and Rest of Asia\u202fPacific\u2014capture the regional distribution of these products. Primary revenue drivers include net sales from direct and indirect channels (40\u202f% direct, 60\u202f% indirect), subscription\u2011based digital content (Apple Music, Apple TV+, Apple Arcade, Apple Fitness+, Apple News+), and payment services (Apple Card, Apple Pay).",
+            "num_chunks": 3
+        },
+        {
+            "question": "What are the most significant risks and emerging uncertainties that could impact future performance?",
+            "section": "risk",
+            "answer": "The most significant risks and emerging uncertainties that could materially affect the Company\u2019s future performance include persistent quality and reliability issues in its services\u2014such as outages, slowdowns, bugs, and vulnerabilities\u2014especially as new, complex technologies like AI are introduced, which heighten safety and security risks and expose the Company to product\u2011liability claims, recalls, and costly fixes. These technical problems can erode customer confidence and lead to financial losses. Additionally, the Company faces broad financial and operational risks: potential financial instability, credit and collectibility risk on trade receivables, counterparty failures, limited access to new debt, liquidity constraints, and declines in the fair value of financial instruments. Finally, external macro\u2011environmental factors\u2014political events, trade disputes, geopolitical tensions, conflict, terrorism, natural disasters, public health crises, and industrial accidents\u2014can disrupt supply chains, operations, and market demand, further jeopardizing performance.",
+            "num_chunks": 3
+        },
+        {
+            "question": "What are the key growth drivers, strategic initiatives, and competitive advantages highlighted by management?",
+            "section": "mda",
+            "answer": "The provided excerpt contains no discussion of growth drivers, strategic initiatives, or competitive advantages; it focuses solely on risk disclosures and accounting judgments.",
+            "num_chunks": 3
+        },
+        {
+            "question": "What factors drove the company\u2019s financial performance, and what major challenges or headwinds were reported?",
+            "section": "mda",
+            "answer": "The company\u2019s 2025 performance was largely driven by a higher volume of services net sales and a more favorable mix of services that lifted the gross\u2011margin percentage, although rising costs partially offset that benefit. Operating expenses grew, with research and development rising 10\u202f% and selling, general and administrative costs up 6\u202f%, reflecting continued investment in growth initiatives. Headwinds highlighted in the filing include significant margin volatility and downward pressure, exposure to interest\u2011rate and foreign\u2011exchange risk that could erode investment portfolio value and raise debt servicing costs, unresolved legal matters that could materially affect results, and uncertain tax positions that may lead to adjustments in reserves.",
+            "num_chunks": 3
+        },
+        {
+            "question": "What signals does management provide about the company\u2019s future outlook, including potential growth opportunities or risks?",
+            "section": "mda",
+            "answer": "Management signals that the company\u2019s future outlook is heavily contingent on the resolution of uncertain events and the effectiveness of its risk\u2011management strategies. It acknowledges that legal contingencies and the outcomes of ongoing litigation could materially affect financial results, and it maintains reserves that are adjusted as facts change. The company also highlights exposure to interest\u2011rate and foreign\u2011exchange fluctuations, using derivatives, duration control, and a VAR model (Monte\u202fCarlo simulation) to quantify potential losses\u2014estimating a one\u2011day maximum loss of $590\u202fmillion (95\u202f% confidence) as of September\u202f27,\u202f2025. These disclosures indicate that while the company is actively managing market risks, significant uncertainties and potential adverse impacts remain, with no explicit growth opportunities outlined in the provided context.",
+            "num_chunks": 3
+        }
+    ]
+}

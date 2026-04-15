@@ -1,0 +1,10 @@
+- Don't use Amazon, Not good parsing.
+- Microsoft parsing gives very less chunks
+- Apple parsing gives less or no context for one for the answers (check output json for Apple).
+- Google, Nvidia and Tesla look like the best working companies for our usecase.
+- gpt-oss20B is the slowest takes almost 7-9 minutes sometimes depending on the context to get answers to 5 question. Hence channged to qwen's 4b model. Runs much much faster, under 30 seconds.
+- OpenAI API (gpt-4o-mini) is the quickest to answer. Best probably for demo. (Other models need to be tried.)
+
+-----   ALL ABOVE WAS AT TEMP=0, DEFAULT TOP_P, TOP_K, CHUNKS=3. THE PROMPT WAS VERY BASIC AS WELL.    -----
+
+
