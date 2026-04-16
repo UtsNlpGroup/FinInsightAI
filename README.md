@@ -79,25 +79,31 @@ finsightAI/
 ### Prerequisites
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) ≥ 24 (or Docker Engine + Compose plugin ≥ 2.20)
-- An **OpenAI API key** (or Anthropic key if you prefer Claude)
+- An **OpenAI API key**
 
 ### 1 — Create a root `.env` file
 
-```bash
-cp backend/.env.example .env   # start from the backend template
-```
-
-Then open `.env` and set at minimum:
+Create a `.env` file in the project root and set at minimum:
 
 ```dotenv
-OPENAI_API_KEY=sk-...          # required for the LangGraph agent
-# or
-ANTHROPIC_API_KEY=sk-ant-...   # if you prefer claude, also set LLM_MODEL below
+OPENAI_API_KEY=sk-...          # required for the LangChain agent
 
-LLM_MODEL=openai:gpt-4.1       # default – change to e.g. anthropic:claude-opus-4-5
+LLM_MODEL=openai:gpt-4.1       # default – change to e.g. openai:gpt-4o
 ```
 
-All other values have sensible defaults and do not need to be changed for a local run.
+Other variables and their defaults:
+
+```dotenv
+APP_NAME="FinsightAI Backend"
+ENVIRONMENT=development
+DEBUG=false
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+MCP_SERVER_URL=http://localhost:8080/mcp
+LLM_TEMPERATURE=0.0
+LLM_MAX_TOKENS=4096
+AGENT_MAX_ITERATIONS=10
+AGENT_RECURSION_LIMIT=25
+```
 
 ### 2 — Build and start all services
 
@@ -182,7 +188,6 @@ npm run dev
 ```bash
 cd MCP
 pip install -r requirements.txt
-cp .env.example .env   # edit as needed
 python server.py
 # → stdio by default; set MCP_TRANSPORT=http for HTTP mode
 ```
@@ -192,7 +197,6 @@ python server.py
 ```bash
 cd backend
 pip install -r requirements.txt
-cp .env.example .env   # set OPENAI_API_KEY and MCP_SERVER_URL
 uvicorn app.main:app --reload --port 8001
 # → http://localhost:8001
 ```
@@ -258,7 +262,7 @@ Bidirectional interface to **ChromaDB**:
 | Backend framework | FastAPI, Uvicorn |
 | AI agent | LangGraph (ReAct), LangChain |
 | MCP integration | langchain-mcp-adapters, FastMCP |
-| LLM | OpenAI GPT-4.1 (default) / Anthropic Claude |
+| LLM | OpenAI GPT-4.1 (default) |
 | Vector store | ChromaDB |
 | Financial data | yfinance (Yahoo Finance) |
 | Containerisation | Docker, Docker Compose |

@@ -69,10 +69,7 @@ pip install -r requirements.txt
 
 ### 2. Configure environment
 
-```bash
-cp .env.example .env
-# Edit .env with your preferred settings
-```
+Create a `.env` file in the `MCP/` directory with your preferred settings.
 
 Key variables:
 
@@ -126,7 +123,6 @@ Add this block to `~/Library/Application Support/Claude/claude_desktop_config.js
 MCP/
 ├── server.py          # FastMCP server + tool definitions
 ├── requirements.txt   # Python dependencies
-├── .env.example       # Environment variable template
 ├── .env               # Your local config (git-ignored)
 └── chroma_data/       # Auto-created ChromaDB persistent storage
 ```

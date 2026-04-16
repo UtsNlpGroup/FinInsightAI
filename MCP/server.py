@@ -35,20 +35,38 @@ mcp = FastMCP(
 )
 
 # ---------------------------------------------------------------------------
-# ChromaDB client (persistent by default, overridable via env)
+# ChromaDB client (remote HTTPS via CHROMA_URL, or local persistent fallback)
 # ---------------------------------------------------------------------------
 
-_CHROMA_HOST = os.getenv("CHROMA_HOST", "")
-_CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))
+_CHROMA_URL = os.getenv("CHROMA_URL", "")
 _CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_data")
 _DEFAULT_COLLECTION = os.getenv("CHROMA_DEFAULT_COLLECTION", "financial_docs")
 
+_CF_CLIENT_ID = os.getenv("CF-ACCESS-CLIENT-ID", "")
+_CF_CLIENT_SECRET = os.getenv("CF-ACCESS-CLIENT-SECRET", "")
+
 _OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
+
 def _get_chroma_client() -> chromadb.ClientAPI:
-    """Return a ChromaDB client based on environment configuration."""
-    if _CHROMA_HOST:
-        return chromadb.HttpClient(host=_CHROMA_HOST, port=_CHROMA_PORT)
+    """Return a ChromaDB client based on environment configuration.
+
+    When CHROMA_URL is set the server connects to the remote ChromaDB instance
+    over HTTPS on port 443.  Cloudflare Access service-token headers are
+    attached automatically when the corresponding env vars are present.
+    """
+    if _CHROMA_URL:
+        headers: dict[str, str] = {}
+        if _CF_CLIENT_ID:
+            headers["CF-Access-Client-Id"] = _CF_CLIENT_ID
+        if _CF_CLIENT_SECRET:
+            headers["CF-Access-Client-Secret"] = _CF_CLIENT_SECRET
+        return chromadb.HttpClient(
+            host=_CHROMA_URL,
+            port=443,
+            ssl=True,
+            headers=headers,
+        )
     return chromadb.PersistentClient(path=_CHROMA_PERSIST_DIR)
 
 

@@ -9,7 +9,7 @@ Pattern: Factory Method
 
 How it works:
   1. A chat model is initialised via `init_chat_model` with the configured
-     provider/model string (e.g. "openai:gpt-4.1", "anthropic:claude-opus-4-5").
+     provider/model string (e.g. "openai:gpt-4.1", "openai:gpt-4o").
   2. `langchain.agents.create_agent` wraps the model and the MCP tools into a
      ready-to-invoke ReAct agent.  The agent handles the tool-call loop
      internally – no manual graph wiring required.

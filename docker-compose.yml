@@ -74,7 +74,6 @@ services:
       LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.0}
       LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-4096}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ALLOWED_ORIGINS: "http://localhost:3000,http://finsight-frontend"
     ports:
       - "8001:8000"
