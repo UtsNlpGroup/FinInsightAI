@@ -1,0 +1,116 @@
+services:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # ChromaDB – vector store (must start before mcp-server)
+  # ──────────────────────────────────────────────────────────────────────────
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: finsight-chromadb
+    restart: unless-stopped
+    environment:
+      IS_PERSISTENT: "TRUE"
+      PERSIST_DIRECTORY: /chroma/chroma
+      ANONYMIZED_TELEMETRY: "FALSE"
+    volumes:
+      - chroma_data:/chroma/chroma
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # MCP Server – FastMCP over HTTP
+  # ──────────────────────────────────────────────────────────────────────────
+  mcp-server:
+    build:
+      context: ./MCP
+      dockerfile: Dockerfile
+    container_name: finsight-mcp
+    restart: unless-stopped
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    environment:
+      # Point at the ChromaDB service instead of local persistent client
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: 8000
+      CHROMA_DEFAULT_COLLECTION: financial_docs
+      MCP_TRANSPORT: http
+      MCP_PORT: 8080
+      # Optional – set your OpenAI key here or in a .env file
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      # Fallback local storage (unused when CHROMA_HOST is set, kept for safety)
+      - mcp_chroma_data:/data/chroma
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Backend – FastAPI + LangGraph agent
+  # ──────────────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: finsight-backend
+    restart: unless-stopped
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      MCP_SERVER_URL: http://mcp-server:8080/mcp
+      LLM_MODEL: ${LLM_MODEL:-openai:gpt-4.1}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.0}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-4096}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ALLOWED_ORIGINS: "http://localhost:3000,http://finsight-frontend"
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Frontend – Vite / React SPA served by Nginx
+  # ──────────────────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: finsight-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Named volumes for persistent data
+# ──────────────────────────────────────────────────────────────────────────────
+volumes:
+  chroma_data:
+    driver: local
+  mcp_chroma_data:
+    driver: local

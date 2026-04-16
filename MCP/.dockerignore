@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+chroma_data
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.log
+.DS_Store
+.git
+.gitignore
+README.md
