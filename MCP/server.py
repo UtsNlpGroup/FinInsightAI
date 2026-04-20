@@ -12,6 +12,7 @@ FastMCP server exposing five tools:
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Any, Literal
 
@@ -26,6 +27,9 @@ from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s – %(message)s")
+logger = logging.getLogger("finsightai.mcp")
 
 # ---------------------------------------------------------------------------
 # Server initialisation
@@ -532,6 +536,13 @@ class VectorStoreInput(BaseModel):
         default=None,
         description="[query only] Natural-language query to search for semantically similar documents.",
     )
+    ticker: str | None = Field(
+        default=None,
+        description=(
+            "[query only] Stock ticker symbol to filter results by (e.g. 'AAPL', 'TSLA'). "
+            "When provided, only documents whose metadata 'ticker' field matches this value are returned."
+        ),
+    )
     n_results: int = Field(
         default=5,
         ge=1,
@@ -540,7 +551,10 @@ class VectorStoreInput(BaseModel):
     )
     where: dict[str, Any] | None = Field(
         default=None,
-        description="[query only] Optional metadata filter (ChromaDB where-clause syntax).",
+        description=(
+            "[query only] Optional metadata filter (ChromaDB where-clause syntax). "
+            "If 'ticker' is also provided, the two filters are merged with $and."
+        ),
     )
 
 
@@ -569,18 +583,26 @@ def vector_store(params: VectorStoreInput) -> VectorStoreResult:
     Returns:
         A VectorStoreResult with a status message and (for queries) the matching documents.
     """
+    logger.info(
+        "vector_store called | operation=%s | collection=%s | ticker=%s",
+        params.operation,
+        params.collection_name,
+        params.ticker or "—",
+    )
+
     client = _get_chroma_client()
     embed_fn = _get_embedding_fn()
 
-    collection = client.get_or_create_collection(
-        name=params.collection_name,
-        embedding_function=embed_fn,
-        metadata={"hnsw:space": "cosine"},
-    )
-
     # ---- ADD ---------------------------------------------------------------
     if params.operation == "add":
+        collection = client.get_or_create_collection(
+            name=params.collection_name,
+            embedding_function=embed_fn,
+            metadata={"hnsw:space": "cosine"},
+        )
+
         if not params.documents:
+            logger.warning("vector_store [add] | no documents provided")
             return VectorStoreResult(
                 operation="add",
                 collection_name=params.collection_name,
@@ -590,10 +612,23 @@ def vector_store(params: VectorStoreInput) -> VectorStoreResult:
         doc_ids = params.ids or [f"doc_{i}" for i in range(len(params.documents))]
         metadatas = params.metadatas or [{}] * len(params.documents)
 
+        logger.info(
+            "vector_store [add] | collection=%s | doc_count=%d | ids=%s",
+            params.collection_name,
+            len(params.documents),
+            doc_ids,
+        )
+
         collection.add(
             ids=doc_ids,
             documents=params.documents,
             metadatas=metadatas,
+        )
+
+        logger.info(
+            "vector_store [add] | success | collection=%s | added=%d",
+            params.collection_name,
+            len(params.documents),
         )
 
         return VectorStoreResult(
@@ -611,19 +646,45 @@ def vector_store(params: VectorStoreInput) -> VectorStoreResult:
 
     # ---- QUERY -------------------------------------------------------------
     if not params.query_text:
+        logger.warning("vector_store [query] | no query_text provided")
         return VectorStoreResult(
             operation="query",
             collection_name=params.collection_name,
             message="No query_text provided. Pass a search string in the 'query_text' field.",
         )
 
+    collection = client.get_collection(
+        name=params.collection_name,
+        embedding_function=embed_fn,
+    )
+
+    # Build the where-clause: ticker filter + any extra where clause
+    ticker_filter: dict[str, Any] | None = (
+        {"ticker": params.ticker.upper()} if params.ticker else None
+    )
+    if ticker_filter and params.where:
+        effective_where: dict[str, Any] | None = {"$and": [ticker_filter, params.where]}
+    elif ticker_filter:
+        effective_where = ticker_filter
+    else:
+        effective_where = params.where
+
+    logger.info(
+        "vector_store [query] | collection=%s | query='%s' | ticker=%s | where=%s | n_results=%d",
+        params.collection_name,
+        params.query_text,
+        params.ticker or "—",
+        effective_where,
+        params.n_results,
+    )
+
     query_kwargs: dict[str, Any] = {
         "query_texts": [params.query_text],
         "n_results": min(params.n_results, collection.count() or params.n_results),
         "include": ["documents", "metadatas", "distances"],
     }
-    if params.where:
-        query_kwargs["where"] = params.where
+    if effective_where:
+        query_kwargs["where"] = effective_where
 
     results = collection.query(**query_kwargs)
 
@@ -642,6 +703,13 @@ def vector_store(params: VectorStoreInput) -> VectorStoreResult:
                 "similarity_score": round(1 - dist, 4),
             }
         )
+
+    logger.info(
+        "vector_store [query] | results=%d | top_score=%s | ids=%s",
+        len(hits),
+        hits[0]["similarity_score"] if hits else "n/a",
+        [h["id"] for h in hits],
+    )
 
     return VectorStoreResult(
         operation="query",
