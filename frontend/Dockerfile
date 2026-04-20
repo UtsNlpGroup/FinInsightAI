@@ -1,4 +1,18 @@
 # ──────────────────────────────────────────────────────────────────────────────
+# Stage 0 – Dev (Vite HMR dev server, source mounted via docker-compose volume)
+# ──────────────────────────────────────────────────────────────────────────────
+FROM node:22-alpine AS dev
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+EXPOSE 5173
+
+CMD ["npm", "run", "dev"]
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Stage 1 – Build
 # ──────────────────────────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder

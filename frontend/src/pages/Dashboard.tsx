@@ -1,198 +1,243 @@
+import { useState, useMemo } from 'react';
+import type { DisclosureCard } from '../types';
 import {
-  ASSET_DATA, AI_OUTLOOK, DASHBOARD_TOP_RISKS,
-  MARKET_SENTIMENT_PULSE, DASHBOARD_METRICS,
+  AI_OUTLOOK,
+  DISCLOSURE_META, DISCLOSURE_KEY_RISKS, DISCLOSURE_GROWTH_DRIVERS,
+  DISCLOSURE_STRATEGIC_FOCUS, DISCLOSURE_FINANCIAL_TRENDS,
 } from '../data/mockData';
-import ConfidenceGauge from '../components/ConfidenceGauge';
+import { useStockPrice } from '../hooks/useStockPrice';
+import type { StockQuote } from '../hooks/useStockPrice';
+import { TrendingUp, TrendingDown, Sparkles, ChevronRight } from 'lucide-react';
 
-function ImpactTag({ tag }: { tag: string }) {
+function fmt(n: number | null | undefined, decimals = 2): string {
+  if (n == null) return '—';
+  return n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+// ── Compact price chip ────────────────────────────────────────────────────────
+function PriceChip({ quote, loading }: { quote: StockQuote | null; loading: boolean }) {
+  const up    = (quote?.change_pct ?? 0) >= 0;
+  const color = up ? '#10B981' : '#EF4444';
+  const bg    = up ? '#DCFCE7' : '#FEF2F2';
+  const Icon  = up ? TrendingUp : TrendingDown;
+
+  if (loading && !quote) {
+    return <div className="h-5 w-24 bg-slate-200 rounded-full animate-pulse" />;
+  }
+  if (!quote) return null;
+
   return (
-    <span
-      className="inline-block px-3.5 py-1.5 rounded-full text-xs font-semibold mr-2 mb-1"
-      style={{ background: '#EEF2FF', color: '#4338CA' }}
-    >
-      {tag}
-    </span>
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-2xl font-extrabold text-slate-900 tracking-tight">
+        {quote.currency === 'USD' ? '$' : ''}{fmt(quote.price)}
+      </span>
+      <span
+        className="flex items-center gap-0.5 text-xs font-bold px-2 py-0.5 rounded-full"
+        style={{ background: bg, color }}
+      >
+        <Icon size={10} strokeWidth={2.5} />
+        {up ? '+' : ''}{fmt(quote.change_pct, 2)}%
+      </span>
+      {quote.market_state && (
+        <span
+          className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase"
+          style={{
+            background: quote.market_state === 'REGULAR' ? '#DCFCE7' : '#F3F4F6',
+            color:      quote.market_state === 'REGULAR' ? '#15803D' : '#6B7280',
+          }}
+        >
+          {quote.market_state === 'REGULAR' ? 'Live' : quote.market_state}
+        </span>
+      )}
+    </div>
   );
 }
 
-export default function Dashboard() {
-  const asset = ASSET_DATA;
-  const outlook = AI_OUTLOOK;
-  const risks = DASHBOARD_TOP_RISKS;
-  const pulse = MARKET_SENTIMENT_PULSE;
-  const metrics = DASHBOARD_METRICS;
+// ── Range bar ─────────────────────────────────────────────────────────────────
+function RangeBar({ quote }: { quote: StockQuote | null }) {
+  if (!quote || !quote.fifty_two_week_low || !quote.fifty_two_week_high) return null;
+
+  const lo  = quote.fifty_two_week_low;
+  const hi  = quote.fifty_two_week_high;
+  const cur = quote.price ?? lo;
+  const pct = Math.min(1, Math.max(0, (cur - lo) / (hi - lo))) * 100;
 
   return (
-    <div>
-      {/* Asset Header */}
-      <div className="flex flex-wrap justify-between items-end gap-4 mb-6">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <span
-              className="px-2 py-1 rounded text-[11px] font-extrabold text-white"
-              style={{ background: '#003399' }}
-            >
-              TICKER: {asset.ticker}
-            </span>
-            <span className="text-sm font-medium" style={{ color: '#4B5563' }}>
-              {asset.exchange} · {asset.dataType}
-            </span>
-          </div>
-          <h1
-            className="text-4xl font-extrabold leading-tight"
-            style={{ color: '#111827' }}
-          >
-            {asset.name}
-          </h1>
-        </div>
-        <div className="flex items-center gap-5 flex-wrap">
-          <div style={{ borderLeft: '3px solid #2563EB', paddingLeft: 16 }}>
-            <div
-              className="text-[11px] font-bold uppercase tracking-wide mb-1"
-              style={{ color: '#6B7280' }}
-            >
-              MARKET PRICE
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold" style={{ color: '#111827' }}>
-                ${asset.price.toFixed(2)}
-              </span>
-              <span className="text-sm font-bold" style={{ color: '#10B981' }}>
-                ↑ {asset.changePct}%
-              </span>
-            </div>
-          </div>
-          <button
-            className="text-white text-sm font-semibold px-5 py-2.5 rounded-md cursor-pointer border-0"
-            style={{ background: '#003399', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-          >
-            + Track Asset
-          </button>
-        </div>
+    <div className="mt-3 px-4 py-2.5 bg-slate-50 rounded-xl border border-slate-100">
+      <div className="flex justify-between text-[10px] font-semibold text-slate-400 mb-1.5">
+        <span>52W LOW</span>
+        <span>52W HIGH</span>
       </div>
-
-      {/* AI Outlook Card */}
-      <div
-        className="rounded-xl p-6 mb-6 border"
-        style={{ background: '#fff', borderColor: '#E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
-      >
-        <div className="flex items-start gap-3 mb-4">
-          <div
-            className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0"
-            style={{ background: '#2563EB', color: '#fff' }}
-          >
-            🧠
-          </div>
-          <div>
-            <div className="font-bold text-lg" style={{ color: '#111827' }}>{outlook.title}</div>
-            <div className="text-sm" style={{ color: '#64748B' }}>
-              Cross-referencing 10-K Filings with Global Macro Sentiment
-            </div>
-          </div>
-        </div>
-        <p
-          className="italic text-base leading-relaxed mb-5"
-          style={{ color: '#334155' }}
-        >
-          "{outlook.quote}"
-        </p>
-        <div>
-          {outlook.tags.map(t => <ImpactTag key={t} tag={t} />)}
-        </div>
-      </div>
-
-      {/* Two-column: Risks + Pulse */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Top Risks */}
+      <div className="relative h-1.5 bg-slate-200 rounded-full">
         <div
-          className="rounded-xl p-6 border"
-          style={{ background: '#fff', borderColor: '#E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
-        >
-          <div
-            className="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wide mb-4"
-            style={{ color: '#DC2626' }}
-          >
-            <div className="w-4 h-0.5 rounded" style={{ background: '#DC2626' }} />
-            INTERNAL REALITY
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #6366F1, #8B5CF6)' }}
+        />
+        <div
+          className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow"
+          style={{ left: `calc(${pct}% - 6px)`, background: '#6366F1' }}
+        />
+      </div>
+      <div className="flex justify-between text-[10px] font-bold text-slate-500 mt-1.5">
+        <span>${fmt(lo)}</span>
+        <span>${fmt(hi)}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Disclosure card badge ─────────────────────────────────────────────────────
+const Badge = ({ level, label }: { level: string; label: string }) => {
+  const variants: Record<string, string> = {
+    high:          'bg-red-50 text-red-700 border-red-100',
+    medium:        'bg-amber-50 text-amber-700 border-amber-100',
+    positive_high: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+    low:           'bg-slate-50 text-slate-600 border-slate-100',
+  };
+  return (
+    <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${variants[level] || variants.low}`}>
+      {label}
+    </span>
+  );
+};
+
+// ── Main ─────────────────────────────────────────────────────────────────────
+
+export default function RefinedDashboard({ currentAsset = 'AAPL' }: { currentAsset?: string }) {
+  const [activeTab, setActiveTab] = useState('risks');
+
+  // Single fetch — shared across header, PriceChip and RangeBar
+  const { quote, loading } = useStockPrice(currentAsset);
+
+  const companyName = quote?.company_name || currentAsset;
+
+  const TABS = useMemo(() => [
+    { id: 'risks',     label: 'Risks',    data: DISCLOSURE_KEY_RISKS },
+    { id: 'growth',    label: 'Growth',   data: DISCLOSURE_GROWTH_DRIVERS },
+    { id: 'strategic', label: 'Strategy', data: DISCLOSURE_STRATEGIC_FOCUS },
+    { id: 'trends',    label: 'Trends',   data: DISCLOSURE_FINANCIAL_TRENDS },
+  ], []);
+
+  const activeContent = useMemo(
+    () => TABS.find(t => t.id === activeTab)?.data || [],
+    [activeTab, TABS],
+  );
+
+  return (
+    <div className="flex flex-col h-full antialiased text-slate-900">
+
+      {/* ── Header block ──────────────────────────────────────────────────── */}
+      <div className="shrink-0 px-4 pt-5 pb-4 border-b border-slate-100">
+        {/* Ticker + exchange row */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter">
+            {currentAsset}
+          </span>
+          <span className="text-[10px] font-medium text-slate-400">Annual Filing</span>
+        </div>
+
+        {/* Company name — updates with selected ticker */}
+        <h1 className="text-lg font-extrabold tracking-tight text-slate-900 leading-tight mb-2">
+          {loading && !quote ? (
+            <span className="inline-block h-5 w-40 bg-slate-200 rounded animate-pulse" />
+          ) : (
+            companyName
+          )}
+        </h1>
+
+        {/* Live price chips */}
+        <PriceChip quote={quote} loading={loading} />
+
+        {/* 52W range bar */}
+        <RangeBar quote={quote} />
+      </div>
+
+      {/* ── AI Insight ────────────────────────────────────────────────────── */}
+      <div className="shrink-0 mx-4 mt-4 px-3 py-3 rounded-xl border border-blue-100 bg-blue-50/60">
+        <div className="flex items-start gap-2.5">
+          <div className="shrink-0 w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
+            <Sparkles size={13} color="#fff" strokeWidth={2} />
           </div>
-          <h2 className="text-[22px] font-bold mb-7" style={{ color: '#0F172A' }}>
-            Top 10-K Highlighted Risks
-          </h2>
-          {risks.map(r => (
-            <div key={r.title} className="flex gap-4 mb-6 items-start">
-              <span className="text-xl mt-0.5">{r.icon}</span>
-              <div>
-                <div className="font-bold text-[15px] mb-1" style={{ color: '#0F172A' }}>{r.title}</div>
-                <div className="text-sm leading-relaxed" style={{ color: '#475569' }}>{r.description}</div>
-              </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-blue-900 mb-1">{AI_OUTLOOK.title}</p>
+            <p className="text-[11px] text-blue-800/80 italic leading-relaxed line-clamp-3">
+              "{AI_OUTLOOK.quote}"
+            </p>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {AI_OUTLOOK.tags.map(t => (
+                <span key={t} className="text-[9px] font-bold bg-white/90 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100 uppercase">
+                  {t}
+                </span>
+              ))}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 10-K Deep Dive ────────────────────────────────────────────────── */}
+      <div className="shrink-0 px-4 mt-5 mb-3">
+        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
+          {DISCLOSURE_META.title}
+        </p>
+        <p className="text-[10px] text-slate-400">{DISCLOSURE_META.subtitle}</p>
+      </div>
+
+      {/* Tab bar — scrollable */}
+      <div className="shrink-0 px-4 mb-3">
+        <div className="flex gap-1 p-1 bg-slate-100 rounded-xl overflow-x-auto no-scrollbar">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 min-w-0 px-2 py-1.5 text-[11px] font-bold rounded-lg whitespace-nowrap transition-all ${
+                activeTab === tab.id
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {tab.label}
+            </button>
           ))}
         </div>
-
-        {/* Market Pulse */}
-        <div
-          className="rounded-xl p-6 border"
-          style={{ background: '#fff', borderColor: '#E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
-        >
-          <div
-            className="flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wide mb-4"
-            style={{ color: '#059669' }}
-          >
-            <div className="w-4 h-0.5 rounded" style={{ background: '#059669' }} />
-            EXTERNAL REALITY
-          </div>
-          <h2 className="text-[22px] font-bold mb-4" style={{ color: '#0F172A' }}>
-            Market Sentiment Pulse
-          </h2>
-          <ConfidenceGauge value={pulse.confidenceIndex} />
-          <div
-            className="rounded-xl p-4 mt-1"
-            style={{ background: '#F0FDF4', border: '1px solid #DCFCE7' }}
-          >
-            <div className="flex justify-between items-center mb-3">
-              <div className="flex items-center gap-2">
-                <span
-                  className="w-6 h-6 rounded flex items-center justify-center text-xs"
-                  style={{ background: '#065F46', color: '#fff' }}
-                >
-                  📈
-                </span>
-                <span className="font-bold text-[15px]" style={{ color: '#065F46' }}>{pulse.label}</span>
-              </div>
-              <span className="text-[11px] font-bold" style={{ color: '#065F46' }}>{pulse.confidenceTier}</span>
-            </div>
-            <div className="w-full h-1.5 rounded-full mb-3" style={{ background: '#DCFCE7' }}>
-              <div
-                className="h-full rounded-full"
-                style={{ width: `${pulse.confidenceIndex * 100}%`, background: '#065F46' }}
-              />
-            </div>
-            <p className="text-xs leading-snug" style={{ color: '#475569' }}>{pulse.description}</p>
-          </div>
-        </div>
       </div>
 
-      {/* Bottom Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {metrics.map(m => (
+      {/* Card list — scrollable region */}
+      <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-3">
+        {activeContent.map((card: DisclosureCard) => (
           <div
-            key={m.label}
-            className="rounded-xl px-5 py-4 flex items-center gap-4 border"
-            style={{ background: '#fff', borderColor: '#E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+            key={card.title}
+            className="rounded-xl border border-slate-200 bg-white hover:border-indigo-200 transition-colors group overflow-hidden"
           >
-            <span className="text-xl">{m.icon}</span>
-            <div>
-              <div
-                className="text-[11px] font-bold uppercase tracking-wide mb-0.5"
-                style={{ color: '#64748B' }}
-              >
-                {m.label}
+            <div className="p-3.5">
+              <div className="flex items-start gap-2.5 mb-2">
+                <div className="shrink-0 w-7 h-7 flex items-center justify-center bg-slate-50 group-hover:bg-indigo-50 rounded-lg transition-colors text-base leading-none">
+                  {card.icon}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-1">
+                    <h4 className="text-[12px] font-bold text-slate-900 leading-snug">{card.title}</h4>
+                    <span className="shrink-0 text-[9px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">
+                      {card.pageRef}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div className="text-base font-bold" style={{ color: '#0F172A' }}>{m.value}</div>
+
+              <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-2 mb-2.5">
+                {card.description}
+              </p>
+
+              <div className="flex items-center justify-between">
+                <Badge level={card.impactLevel} label={card.impact} />
+                <button className="flex items-center gap-0.5 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors">
+                  Details <ChevronRight size={10} strokeWidth={2.5} />
+                </button>
+              </div>
             </div>
           </div>
         ))}
       </div>
+
     </div>
   );
 }

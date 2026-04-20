@@ -34,13 +34,19 @@ mcp = FastMCP(
     ),
 )
 
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request):
+    from starlette.responses import JSONResponse
+    return JSONResponse({"status": "ok"})
+
 # ---------------------------------------------------------------------------
 # ChromaDB client (remote HTTPS via CHROMA_URL, or local persistent fallback)
 # ---------------------------------------------------------------------------
 
 _CHROMA_URL = os.getenv("CHROMA_URL", "")
 _CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_data")
-_DEFAULT_COLLECTION = os.getenv("CHROMA_DEFAULT_COLLECTION", "financial_docs")
+_DEFAULT_COLLECTION = os.getenv("CHROMA_DEFAULT_COLLECTION", "stream2_sentiment")
 
 _CF_CLIENT_ID = os.getenv("CF-ACCESS-CLIENT-ID", "")
 _CF_CLIENT_SECRET = os.getenv("CF-ACCESS-CLIENT-SECRET", "")
@@ -51,21 +57,18 @@ _OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 def _get_chroma_client() -> chromadb.ClientAPI:
     """Return a ChromaDB client based on environment configuration.
 
-    When CHROMA_URL is set the server connects to the remote ChromaDB instance
-    over HTTPS on port 443.  Cloudflare Access service-token headers are
-    attached automatically when the corresponding env vars are present.
+    When CHROMA_URL is set the server connects to the remote ChromaDB instance.
+    Provide the full URL including scheme, e.g. https://chroma.taskcomply.com.
+    Cloudflare Access service-token headers are attached automatically when the
+    corresponding env vars are present.
     """
     if _CHROMA_URL:
-        headers: dict[str, str] = {}
-        if _CF_CLIENT_ID:
-            headers["CF-Access-Client-Id"] = _CF_CLIENT_ID
-        if _CF_CLIENT_SECRET:
-            headers["CF-Access-Client-Secret"] = _CF_CLIENT_SECRET
         return chromadb.HttpClient(
             host=_CHROMA_URL,
-            port=443,
-            ssl=True,
-            headers=headers,
+            headers={
+                "CF-Access-Client-Id": _CF_CLIENT_ID,
+                "CF-Access-Client-Secret": _CF_CLIENT_SECRET,
+            },
         )
     return chromadb.PersistentClient(path=_CHROMA_PERSIST_DIR)
 
@@ -76,11 +79,11 @@ def _get_embedding_fn() -> Any:
     Prefers OpenAI embeddings when OPENAI_API_KEY is set,
     otherwise falls back to the lightweight default (all-MiniLM-L6-v2).
     """
-    if _OPENAI_API_KEY:
-        return embedding_functions.OpenAIEmbeddingFunction(
-            api_key=_OPENAI_API_KEY,
-            model_name="text-embedding-3-small",
-        )
+    # if _OPENAI_API_KEY:
+    #     return embedding_functions.OpenAIEmbeddingFunction(
+    #         api_key=_OPENAI_API_KEY,
+    #         model_name="text-embedding-3-small",
+    #     )
     return embedding_functions.DefaultEmbeddingFunction()
 
 
@@ -162,7 +165,74 @@ def get_company_financials(ticker: str) -> FinancialDataResult:
 
 
 # ---------------------------------------------------------------------------
-# Tool 2 – Chroma vector store (add / query)
+# Tool 2 – Yahoo Finance historical price data
+# ---------------------------------------------------------------------------
+
+class PriceHistoryResult(BaseModel):
+    ticker: str
+    company_name: str
+    period: str
+    interval: str
+    data: list[dict[str, Any]]   # [{date, open, high, low, close, volume}, …]
+
+
+@mcp.tool
+def get_price_history(
+    ticker: str,
+    period: str = "1y",
+) -> PriceHistoryResult:
+    """
+    Fetch historical OHLCV price data for a US-listed company, ready for charting.
+
+    The interval is automatically chosen to keep the result concise (≤ 60 rows):
+      • period ≤ 3 months  → daily bars
+      • period ≤ 1 year    → weekly bars
+      • period  > 1 year   → monthly bars
+
+    Args:
+        ticker: Stock ticker symbol (e.g. "AAPL", "MSFT").
+        period: One of "1mo", "3mo", "6mo", "1y", "2y", "5y". Defaults to "1y".
+
+    Returns:
+        Structured price history suitable for embedding as a frontend chart block.
+    """
+    interval_map = {
+        "1mo": "1d",
+        "3mo": "1d",
+        "6mo": "1wk",
+        "1y":  "1wk",
+        "2y":  "1mo",
+        "5y":  "1mo",
+    }
+    interval = interval_map.get(period, "1wk")
+
+    stock = yf.Ticker(ticker.upper())
+    hist  = stock.history(period=period, interval=interval)
+    info  = stock.info or {}
+
+    data = [
+        {
+            "date":   str(idx.date()),
+            "open":   round(float(row["Open"]),  2),
+            "high":   round(float(row["High"]),  2),
+            "low":    round(float(row["Low"]),   2),
+            "close":  round(float(row["Close"]), 2),
+            "volume": int(row["Volume"]),
+        }
+        for idx, row in hist.iterrows()
+    ]
+
+    return PriceHistoryResult(
+        ticker=ticker.upper(),
+        company_name=info.get("longName") or info.get("shortName") or ticker.upper(),
+        period=period,
+        interval=interval,
+        data=data,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tool 3 – Chroma vector store (add / query)
 # ---------------------------------------------------------------------------
 
 class VectorStoreInput(BaseModel):
@@ -325,8 +395,9 @@ def vector_store(params: VectorStoreInput) -> VectorStoreResult:
 if __name__ == "__main__":
     transport = os.getenv("MCP_TRANSPORT", "stdio")
     port = int(os.getenv("MCP_PORT", "8080"))
+    host = os.getenv("MCP_HOST", "0.0.0.0")
 
     if transport == "http":
-        mcp.run(transport="http", port=port)
+        mcp.run(transport="http", host=host, port=port)
     else:
         mcp.run()

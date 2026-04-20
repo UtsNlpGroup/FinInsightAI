@@ -103,6 +103,10 @@ class AgentService:
         request reuses the same HTTP connection to the MCP server.
         """
         tools = self._mcp_manager.get_tools()
+        logger.info(
+            "Agent built | available_tools=[%s]",
+            ", ".join(t.name for t in tools),
+        )
         return self._factory.create(tools)
 
     def _build_input(self, request: ChatRequest) -> dict:
@@ -149,6 +153,22 @@ class AgentService:
         result = await agent.ainvoke(agent_input, config=config)
 
         final_messages = result["messages"]
+
+        for msg in final_messages:
+            if isinstance(msg, AIMessage) and msg.tool_calls:
+                for tc in msg.tool_calls:
+                    logger.info(
+                        "Tool call dispatched | tool=%s | input=%s",
+                        tc["name"],
+                        tc["args"],
+                    )
+            elif isinstance(msg, ToolMessage):
+                logger.info(
+                    "Tool call result    | tool_call_id=%s | output=%.200s",
+                    msg.tool_call_id,
+                    msg.content,
+                )
+
         answer_msg: AIMessage | None = next(
             (m for m in reversed(final_messages) if isinstance(m, AIMessage)),
             None,
@@ -202,20 +222,29 @@ class AgentService:
 
                 # MCP tool invocation start
                 elif kind == "on_tool_start":
+                    tool_input = event["data"].get("input", {})
+                    logger.info(
+                        "Tool call dispatched | tool=%s | input=%s",
+                        name,
+                        tool_input,
+                    )
                     yield StreamChunk(
                         event=StreamEventType.TOOL_START,
-                        data={"tool": name, "input": event["data"].get("input", {})},
+                        data={"tool": name, "input": tool_input},
                         conversation_id=cid,
                     )
 
                 # MCP tool invocation end
                 elif kind == "on_tool_end":
+                    tool_output = str(event["data"].get("output", ""))
+                    logger.info(
+                        "Tool call result    | tool=%s | output=%.200s",
+                        name,
+                        tool_output,
+                    )
                     yield StreamChunk(
                         event=StreamEventType.TOOL_END,
-                        data={
-                            "tool": name,
-                            "output": str(event["data"].get("output", "")),
-                        },
+                        data={"tool": name, "output": tool_output},
                         conversation_id=cid,
                     )
 

@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import v1_router
 from app.core.config import Settings, get_settings
+from app.core.database import close_pool
 from app.services.mcp_manager import MCPClientManager
 
 logging.basicConfig(
@@ -38,16 +39,18 @@ async def lifespan(app: FastAPI):
     """
     settings: Settings = app.state.settings
 
+    logger.info("Starting %s v%s [%s]", settings.app_name, settings.app_version, settings.environment)
+
+    # ── MCP client ────────────────────────────────────────────────────────
     mcp_manager = MCPClientManager(settings)
     app.state.mcp_manager = mcp_manager
-
-    logger.info("Starting %s v%s [%s]", settings.app_name, settings.app_version, settings.environment)
     await mcp_manager.connect()
 
     yield
 
     logger.info("Shutting down …")
     await mcp_manager.disconnect()
+    await close_pool()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:

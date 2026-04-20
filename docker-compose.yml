@@ -1,26 +1,7 @@
-services:
+volumes:
+  finsight-node-modules:
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # ChromaDB – vector store (must start before mcp-server)
-  # ──────────────────────────────────────────────────────────────────────────
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: finsight-chromadb
-    restart: unless-stopped
-    environment:
-      IS_PERSISTENT: "TRUE"
-      PERSIST_DIRECTORY: /chroma/chroma
-      ANONYMIZED_TELEMETRY: "FALSE"
-    volumes:
-      - chroma_data:/chroma/chroma
-    ports:
-      - "8000:8000"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
-      interval: 20s
-      timeout: 10s
-      retries: 5
-      start_period: 15s
+services:
 
   # ──────────────────────────────────────────────────────────────────────────
   # MCP Server – FastMCP over HTTP
@@ -31,21 +12,15 @@ services:
       dockerfile: Dockerfile
     container_name: finsight-mcp
     restart: unless-stopped
-    depends_on:
-      chromadb:
-        condition: service_healthy
+    env_file:
+      - ./MCP/.env
     environment:
-      # Point at the ChromaDB service instead of local persistent client
-      CHROMA_HOST: chromadb
-      CHROMA_PORT: 8000
-      CHROMA_DEFAULT_COLLECTION: financial_docs
       MCP_TRANSPORT: http
       MCP_PORT: 8080
-      # Optional – set your OpenAI key here or in a .env file
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     volumes:
-      # Fallback local storage (unused when CHROMA_HOST is set, kept for safety)
-      - mcp_chroma_data:/data/chroma
+      # Hot reload – mount source so watchfiles picks up changes
+      - ./MCP/server.py:/app/server.py
+    command: watchfiles --filter python "python server.py"
     ports:
       - "8080:8080"
     healthcheck:
@@ -67,14 +42,22 @@ services:
     depends_on:
       mcp-server:
         condition: service_healthy
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    env_file:
+      - ./backend/.env
     environment:
-      ENVIRONMENT: production
+      ENVIRONMENT: development
       MCP_SERVER_URL: http://mcp-server:8080/mcp
-      LLM_MODEL: ${LLM_MODEL:-openai:gpt-4.1}
+      LLM_MODEL: ${LLM_MODEL:-openai:gpt-5.4-mini}
       LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.0}
       LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-4096}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      ALLOWED_ORIGINS: "http://localhost:3000,http://finsight-frontend"
+      ALLOWED_ORIGINS: '["http://localhost:3000","http://finsight-frontend","http://localhost:5173"]'
+    volumes:
+      # Hot reload – mount app source so uvicorn --reload picks up changes
+      - ./backend/app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8001:8000"
     healthcheck:
@@ -91,25 +74,28 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: dev
     container_name: finsight-frontend
     restart: unless-stopped
     depends_on:
       backend:
         condition: service_healthy
+    environment:
+      # Vite dev-server proxy target: use the Docker-internal service name
+      # so /api/* calls are forwarded correctly from inside the container.
+      API_TARGET: http://finsight-backend:8000
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-https://eypqdoziuoztcspezhes.supabase.co}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-sb_publishable_oesamD4z5zumsZotrJt_yA_qWsCLurv}
+    volumes:
+      # Hot reload – mount source; node_modules lives in a named volume so it
+      # survives source mounts but can be cleared with: docker volume rm finsight-node-modules
+      - ./frontend:/app
+      - finsight-node-modules:/app/node_modules
     ports:
-      - "3000:80"
+      - "3000:5173"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5173/FinInsightAI/"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Named volumes for persistent data
-# ──────────────────────────────────────────────────────────────────────────────
-volumes:
-  chroma_data:
-    driver: local
-  mcp_chroma_data:
-    driver: local
+      start_period: 15s

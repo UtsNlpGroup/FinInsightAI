@@ -9,3 +9,9 @@ langchain>=0.3.0
 langchain-core>=0.3.0
 langchain-openai>=0.3.0
 langchain-mcp-adapters>=0.2.0
+
+# Market data (used by the /market REST endpoints)
+yfinance>=0.2.0
+
+# PostgreSQL async driver (Supabase direct connection)
+asyncpg>=0.29.0

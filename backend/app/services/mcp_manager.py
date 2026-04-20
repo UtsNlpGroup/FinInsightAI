@@ -62,8 +62,12 @@ class MCPClientManager:
             )
         except Exception as exc:
             self._connected = False
-            logger.error("Failed to connect to MCP server: %s", exc)
-            raise
+            logger.warning(
+                "Could not connect to MCP server at startup (%s). "
+                "The backend will start in degraded mode. "
+                "Call /api/v1/agent/health or refresh tools once MCP is ready.",
+                exc,
+            )
 
     async def disconnect(self) -> None:
         """Release the MCP session. Called on application shutdown."""

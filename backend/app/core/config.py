@@ -40,11 +40,16 @@ class Settings(BaseSettings):
     # ── LLM Provider ─────────────────────────────────────────────────────────
     # Passed to langchain.chat_models.init_chat_model, e.g.:
     #   "openai:gpt-4.1", "openai:gpt-4o", "ollama:llama3"
-    llm_model: str = Field(default="openai:gpt-4.1")
+    llm_model: str = Field(default="openai:gpt-5.4-mini")
     llm_temperature: float = Field(default=0.0, ge=0.0, le=2.0)
     llm_max_tokens: int = Field(default=4096, gt=0)
 
     openai_api_key: str = Field(default="")
+
+    # ── Supabase / Postgres ───────────────────────────────────────────────────
+    # Full asyncpg-compatible DSN, e.g.:
+    #   postgresql://postgres:<password>@db.<ref>.supabase.co:5432/postgres?sslmode=require
+    supabase_db_url: str = Field(default="")
 
     # ── Agent ─────────────────────────────────────────────────────────────────
     agent_max_iterations: int = Field(default=10, gt=0)
