@@ -136,56 +136,104 @@ function parseSegments(raw: string): Segment[] {
 
 // ── Welcome action cards ──────────────────────────────────────────────────────
 
-const ACTION_CARDS = [
-  {
-    Icon: TrendingUp,
-    iconBg: '#FEF3C7',
-    iconColor: '#D97706',
-    title: 'Price History',
-    description: 'Plot historical price data for any ticker',
-    prompt: 'Show me AAPL price history for the last 6 months',
-  },
-  {
-    Icon: BarChart2,
-    iconBg: '#EDE9FE',
-    iconColor: '#7C3AED',
-    title: 'Key Financials',
-    description: 'Revenue, EBITDA, cash flow breakdown',
-    prompt: 'What are the key financials for Apple?',
-  },
-  {
-    Icon: FileSearch,
-    iconBg: '#DCFCE7',
-    iconColor: '#16A34A',
-    title: 'Risk Analysis',
-    description: 'Summarise top risks from 10-K filings',
-    prompt: "What are Apple's main risk factors?",
-  },
-  {
-    Icon: PieChart,
-    iconBg: '#FCE7F3',
-    iconColor: '#DB2777',
-    title: 'Compare Companies',
-    description: 'Side-by-side metric comparison',
-    prompt: 'Compare revenue and EBITDA for AAPL, MSFT and GOOGL',
-  },
-];
+function makeActionCards(ticker: string, name: string) {
+  return [
+    {
+      Icon: TrendingUp,
+      iconBg: '#FEF3C7',
+      iconColor: '#D97706',
+      title: 'Price History',
+      description: `Plot historical price data for ${ticker}`,
+      prompt: `Show me ${ticker} price history for the last 6 months`,
+    },
+    {
+      Icon: BarChart2,
+      iconBg: '#EDE9FE',
+      iconColor: '#7C3AED',
+      title: 'Key Financials',
+      description: 'Revenue, EBITDA, cash flow breakdown',
+      prompt: `What are the key financials for ${name}?`,
+    },
+    {
+      Icon: FileSearch,
+      iconBg: '#DCFCE7',
+      iconColor: '#16A34A',
+      title: 'Risk Analysis',
+      description: `Summarise top risks from ${ticker} 10-K`,
+      prompt: `What are ${name}'s main risk factors from their 10-K filing?`,
+    },
+    {
+      Icon: PieChart,
+      iconBg: '#FCE7F3',
+      iconColor: '#DB2777',
+      title: 'Compare',
+      description: 'Side-by-side metric comparison',
+      prompt: `Compare revenue and EBITDA for ${ticker}, MSFT and GOOGL`,
+    },
+  ];
+}
 
-function WelcomeState({ onPrompt }: { onPrompt: (s: string) => void }) {
+// ── Rolling company name ──────────────────────────────────────────────────────
+
+function RollingName({ name }: { name: string }) {
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        overflow: 'hidden',
+        verticalAlign: 'bottom',
+        maxWidth: '100%',
+      }}
+    >
+      <span
+        key={name}
+        style={{
+          display: 'inline-block',
+          animation: 'roll-in 0.45s cubic-bezier(0.22,1,0.36,1) forwards',
+        }}
+      >
+        {name}
+      </span>
+    </span>
+  );
+}
+
+function WelcomeState({
+  onPrompt,
+  currentAsset = 'AAPL',
+  currentCompanyName = 'Apple Inc.',
+}: {
+  onPrompt: (s: string) => void;
+  currentAsset?: string;
+  currentCompanyName?: string;
+}) {
+  const cards = makeActionCards(currentAsset, currentCompanyName);
+
   return (
     <div className="flex flex-col items-center justify-center h-full px-6 pb-8 select-none">
       <h2
-        className="text-4xl font-bold text-center mb-3"
+        className="text-4xl font-bold text-center mb-2"
         style={{ color: '#111827', letterSpacing: '-1px', lineHeight: 1.15 }}
       >
         Welcome to FinSight AI
       </h2>
-      <p className="text-base text-center mb-10" style={{ color: '#6B7280', maxWidth: 420 }}>
-        Get started by asking about a company and the AI can do the rest. Not sure where to start?
+
+      {/* Rolling company name subtitle */}
+      <p
+        className="text-base font-medium text-center mb-10"
+        style={{ color: '#6B7280', maxWidth: 420 }}
+      >
+        Let's explore{' '}
+        <span
+          className="font-semibold"
+          style={{ color: '#4F46E5' }}
+        >
+          <RollingName name={currentCompanyName} />
+        </span>
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl">
-        {ACTION_CARDS.map(({ Icon, iconBg, iconColor, title, description, prompt }) => (
+        {cards.map(({ Icon, iconBg, iconColor, title, description, prompt }) => (
           <button
             key={title}
             onClick={() => onPrompt(prompt)}
@@ -458,13 +506,23 @@ interface ChatProps {
   initialMessages?: ChatMessage[];
   initialApiHistory?: ApiMessage[];
   onUpdate?: (messages: ChatMessage[], apiHistory: ApiMessage[]) => void;
+  currentAsset?: string;
+  currentCompanyName?: string;
 }
 
-export default function Chat({ initialMessages, initialApiHistory, onUpdate }: ChatProps) {
+export default function Chat({
+  initialMessages,
+  initialApiHistory,
+  onUpdate,
+  currentAsset = 'AAPL',
+  currentCompanyName = 'Apple Inc.',
+}: ChatProps) {
   const { messages, isStreaming, toolActivity, sendMessage, cancelStream } = useChat({
     initialMessages,
     initialApiHistory,
     onUpdate,
+    currentAsset,
+    currentCompanyName,
   });
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -480,13 +538,21 @@ export default function Chat({ initialMessages, initialApiHistory, onUpdate }: C
         @keyframes blink  { 0%,100%{opacity:1} 50%{opacity:0} }
         @keyframes pulse  { 0%,100%{opacity:0.25} 50%{opacity:1} }
         @keyframes spin   { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes roll-in {
+          from { transform: translateY(70%); opacity: 0; }
+          to   { transform: translateY(0);   opacity: 1; }
+        }
       `}</style>
 
       <div className="flex-1 min-h-0 flex flex-col" style={{ background: '#FFFFFF' }}>
         {/* Messages */}
         <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-8 py-6">
           {!hasConversation ? (
-            <WelcomeState onPrompt={sendMessage} />
+            <WelcomeState
+              onPrompt={sendMessage}
+              currentAsset={currentAsset}
+              currentCompanyName={currentCompanyName}
+            />
           ) : (
             <div className="max-w-2xl mx-auto">
               {messages.map((msg, i) => {

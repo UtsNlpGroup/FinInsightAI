@@ -4,6 +4,7 @@ Market data endpoints.
 Provides a lightweight REST API for:
   • GET /market/price/{ticker}   – real-time stock quote via Yahoo Finance
   • GET /market/prices/batch     – batch quotes + sparklines for all tracked tickers
+  • GET /market/macro            – live macro indices (S&P 500, NASDAQ, 10Y Yield, …)
   • GET /market/companies        – list of tracked companies from Supabase
   • POST /market/companies       – add a new company to track
 """
@@ -15,7 +16,7 @@ import logging
 import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from app.core.database import get_pool
@@ -136,6 +137,138 @@ def _sync_batch_fetch(
         except Exception as exc:
             logger.debug("Skipping %s in batch: %s", t, exc)
 
+    return result
+
+
+# ── Macro index catalogue ─────────────────────────────────────────────────────
+
+_MACRO_CATALOGUE: list[dict] = [
+    {"key": "SPX", "ticker": "^GSPC", "label": "S&P 500",   "is_yield": False},
+    {"key": "NDX", "ticker": "^IXIC", "label": "NASDAQ",    "is_yield": False},
+    {"key": "TNX", "ticker": "^TNX",  "label": "10Y Yield", "is_yield": True},
+    {"key": "DJI", "ticker": "^DJI",  "label": "Dow Jones", "is_yield": False},
+    {"key": "VIX", "ticker": "^VIX",  "label": "VIX",       "is_yield": False},
+]
+_MACRO_BY_KEY = {m["key"]: m for m in _MACRO_CATALOGUE}
+
+
+class MacroItem(BaseModel):
+    key: str
+    label: str
+    ticker: str
+    price: float | None
+    change: float | None
+    change_pct: float | None
+    is_yield: bool
+
+
+# Simple 60-second TTL cache reused for macro data
+_macro_cache: dict[str, tuple[list[MacroItem], float]] = {}
+
+
+def _sync_fetch_macro(entries: list[dict]) -> list[MacroItem]:
+    """Fetch macro index quotes using yfinance (runs in thread-pool)."""
+    try:
+        import yfinance as yf  # noqa: PLC0415
+    except ImportError:
+        return []
+
+    yf_tickers = " ".join(e["ticker"] for e in entries)
+    try:
+        data = yf.download(
+            tickers=yf_tickers,
+            period="5d",
+            interval="1d",
+            auto_adjust=True,
+            progress=False,
+        )
+    except Exception as exc:
+        logger.warning("yfinance macro download failed: %s", exc)
+        return []
+
+    result: list[MacroItem] = []
+    single = len(entries) == 1
+
+    for entry in entries:
+        try:
+            t = entry["ticker"]
+            if single:
+                closes = data["Close"].dropna().values.tolist()
+            else:
+                if t not in data["Close"].columns:
+                    continue
+                closes = data["Close"][t].dropna().values.tolist()
+
+            if not closes:
+                continue
+
+            price  = float(closes[-1])
+            prev   = float(closes[-2]) if len(closes) >= 2 else price
+            change = round(price - prev, 4) if prev else None
+            chg_pct = round((change / prev) * 100, 4) if change and prev else None
+
+            result.append(
+                MacroItem(
+                    key=entry["key"],
+                    label=entry["label"],
+                    ticker=t,
+                    price=round(price, 4),
+                    change=change,
+                    change_pct=chg_pct,
+                    is_yield=entry["is_yield"],
+                )
+            )
+        except Exception as exc:
+            logger.debug("Skipping macro %s: %s", entry["key"], exc)
+
+    return result
+
+
+@router.get(
+    "/macro",
+    response_model=list[MacroItem],
+    summary="Live macro market indices (S&P 500, NASDAQ, 10Y Yield, …)",
+)
+async def get_macro(
+    indices: str | None = Query(
+        default=None,
+        description=(
+            "Comma-separated keys to return (e.g. 'SPX,NDX,TNX'). "
+            "Omit to return all available indices. "
+            f"Available keys: {', '.join(_MACRO_BY_KEY)}"
+        ),
+    ),
+) -> list[MacroItem]:
+    """
+    Return live quotes for macro market indices.
+
+    - **No `indices` param** → returns all tracked indices (SPX, NDX, TNX, DJI, VIX).
+    - **`indices=SPX,TNX`** → returns only S&P 500 and 10Y Yield.
+
+    Results are cached for 60 seconds.
+    """
+    if indices:
+        requested_keys = [k.strip().upper() for k in indices.split(",") if k.strip()]
+        unknown = [k for k in requested_keys if k not in _MACRO_BY_KEY]
+        if unknown:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown index key(s): {unknown}. "
+                       f"Available: {list(_MACRO_BY_KEY)}",
+            )
+        entries = [_MACRO_BY_KEY[k] for k in requested_keys]
+    else:
+        entries = _MACRO_CATALOGUE
+
+    cache_key = ",".join(e["key"] for e in entries)
+    cached_entry = _macro_cache.get(cache_key)
+    if cached_entry and (time.time() - cached_entry[1]) < 60.0:
+        return cached_entry[0]
+
+    loop   = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, _sync_fetch_macro, entries)
+
+    _macro_cache[cache_key] = (result, time.time())
     return result
 
 

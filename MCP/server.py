@@ -1,9 +1,11 @@
 """
 FinsightAI MCP Server
 =====================
-FastMCP server exposing two tools:
-  1. get_company_financials  – fetches live financial data via Yahoo Finance
-  2. vector_store            – adds documents to / queries a Chroma collection
+FastMCP server exposing four tools:
+  1. get_company_financials  – live snapshot of key financial metrics (yfinance .info)
+  2. get_price_history       – historical OHLCV price data for charting
+  3. get_fundamentals        – full income / balance / cashflow statements (annual & quarterly)
+  4. vector_store            – add documents to / query a ChromaDB collection
 """
 
 from __future__ import annotations
@@ -11,6 +13,8 @@ from __future__ import annotations
 import json
 import os
 from typing import Any, Literal
+
+import pandas as pd
 
 import chromadb
 import yfinance as yf
@@ -232,7 +236,125 @@ def get_price_history(
 
 
 # ---------------------------------------------------------------------------
-# Tool 3 – Chroma vector store (add / query)
+# Tool 3 – Fundamental financial statements (income / balance / cash flow)
+# ---------------------------------------------------------------------------
+
+class FundamentalsResult(BaseModel):
+    ticker: str
+    company_name: str
+    statement: str              # "income" | "balance" | "cashflow"
+    frequency: str              # "annual" | "quarterly"
+    periods: list[str]          # period-end dates, newest first, e.g. ["2024-09-28", …]
+    rows: list[dict[str, Any]]  # [{metric, <period>: value, …}, …]
+    currency: str | None
+
+
+def _df_to_rows(df: pd.DataFrame) -> tuple[list[str], list[dict[str, Any]]]:
+    """Convert a yfinance financial-statement DataFrame into (periods, rows)."""
+    periods: list[str] = [
+        str(col.date()) if hasattr(col, "date") else str(col)
+        for col in df.columns
+    ]
+    rows: list[dict[str, Any]] = []
+    for metric_name, series in df.iterrows():
+        row: dict[str, Any] = {"metric": str(metric_name)}
+        for col, period in zip(df.columns, periods):
+            val = series[col]
+            row[period] = None if pd.isna(val) else round(float(val), 2)
+        rows.append(row)
+    return periods, rows
+
+
+@mcp.tool
+def get_fundamentals(
+    ticker: str,
+    statement: Literal["income", "balance", "cashflow"] = "income",
+    frequency: Literal["annual", "quarterly"] = "annual",
+) -> FundamentalsResult:
+    """
+    Fetch fundamental financial statements for a US-listed company via Yahoo Finance.
+
+    Uses the native yfinance property API:
+      • annual    → ticker.income_stmt          / ticker.balance_sheet   / ticker.cashflow
+      • quarterly → ticker.quarterly_income_stmt / ticker.quarterly_balance_sheet / ticker.quarterly_cashflow
+
+    Annual mode returns up to 4 fiscal years; quarterly returns the last ~5 quarters.
+
+    Args:
+        ticker:    Stock ticker symbol (e.g. "AAPL", "MSFT", "GOOGL").
+        statement: Which statement to retrieve:
+                     - "income"   → Income Statement (revenue, gross profit, EBITDA, net income, EPS, …)
+                     - "balance"  → Balance Sheet (assets, liabilities, equity, debt, cash, …)
+                     - "cashflow" → Cash Flow Statement (operating, investing, financing cash flows, …)
+                   Defaults to "income".
+        frequency: Reporting period granularity:
+                     - "annual"    → Last ~4 fiscal year-end snapshots (best for long-term trends)
+                     - "quarterly" → Last ~5 quarters (best for recent momentum / seasonal patterns)
+                   Defaults to "annual".
+
+    Returns:
+        A structured result with:
+          - `periods`: ordered list of period-end dates (newest first)
+          - `rows`:    one dict per line item — keys are "metric" plus each period date
+          - `currency`: reporting currency (e.g. "USD")
+    """
+    stock = yf.Ticker(ticker.upper())
+
+    full_info: dict[str, Any] = {}
+    try:
+        full_info = stock.info or {}
+    except Exception:
+        pass
+
+    company_name: str = full_info.get("longName") or full_info.get("shortName") or ticker.upper()
+    currency: str | None = full_info.get("currency")
+
+    # ── Select the correct DataFrame via the property-based API ───────────
+    df: pd.DataFrame | None = None
+    try:
+        if frequency == "annual":
+            if statement == "income":
+                df = stock.income_stmt
+            elif statement == "balance":
+                df = stock.balance_sheet
+            else:
+                df = stock.cashflow
+        else:  # quarterly
+            if statement == "income":
+                df = stock.quarterly_income_stmt
+            elif statement == "balance":
+                df = stock.quarterly_balance_sheet
+            else:
+                df = stock.quarterly_cashflow
+    except Exception:
+        pass
+
+    if df is None or df.empty:
+        return FundamentalsResult(
+            ticker=ticker.upper(),
+            company_name=company_name,
+            statement=statement,
+            frequency=frequency,
+            periods=[],
+            rows=[],
+            currency=currency,
+        )
+
+    periods, rows = _df_to_rows(df)
+
+    return FundamentalsResult(
+        ticker=ticker.upper(),
+        company_name=company_name,
+        statement=statement,
+        frequency=frequency,
+        periods=periods,
+        rows=rows,
+        currency=currency,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tool 4 – Chroma vector store (add / query)
 # ---------------------------------------------------------------------------
 
 class VectorStoreInput(BaseModel):

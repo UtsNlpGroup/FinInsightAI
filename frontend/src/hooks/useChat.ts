@@ -11,19 +11,22 @@ import { streamChat, type ApiMessage } from '../services/chatApi';
 import type { ChatMessage } from '../types';
 
 // ── Greeting (display-only, never sent to the API) ────────────────────────────
+// Built dynamically so suggestions reflect the currently selected company.
 
-const GREETING: ChatMessage = {
-  role: 'assistant',
-  content:
-    "Hello! I'm **FinsightAI**, your financial analyst assistant. " +
-    'Ask me about any US-listed company — I can fetch live financials, ' +
-    'plot price history, and search stored reports.',
-  suggestions: [
-    'Key financials for AAPL',
-    'Compare MSFT and GOOGL revenue',
-    "What are Apple's main risk factors?",
-  ],
-};
+function makeGreeting(ticker: string, name: string): ChatMessage {
+  return {
+    role: 'assistant',
+    content:
+      "Hello! I'm **FinsightAI**, your financial analyst assistant. " +
+      'Ask me about any US-listed company — I can fetch live financials, ' +
+      'plot price history, and search stored reports.',
+    suggestions: [
+      `Key financials for ${ticker}`,
+      `Show ${ticker} annual revenue trend`,
+      `What are ${name}'s main risk factors?`,
+    ],
+  };
+}
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -42,6 +45,14 @@ export interface UseChatOptions {
    * session store can persist the updated conversation.
    */
   onUpdate?: (messages: ChatMessage[], apiHistory: ApiMessage[]) => void;
+  /**
+   * Currently selected ticker (e.g. "AAPL"). Injected as a fresh system
+   * context message on every API call so the agent always defaults to
+   * the company the user has open — without permanently storing it in
+   * apiHistory (so it updates immediately when the user switches company).
+   */
+  currentAsset?: string;
+  currentCompanyName?: string;
 }
 
 export interface UseChatReturn {
@@ -55,20 +66,34 @@ export interface UseChatReturn {
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useChat(options: UseChatOptions = {}): UseChatReturn {
-  const { initialMessages, initialApiHistory, onUpdate } = options;
+  const {
+    initialMessages,
+    initialApiHistory,
+    onUpdate,
+    currentAsset = 'AAPL',
+    currentCompanyName = 'Apple Inc.',
+  } = options;
 
   // Seed from saved session, or show the greeting for a brand-new session
   const [messages, setMessages] = useState<ChatMessage[]>(
     initialMessages && initialMessages.length > 0
       ? initialMessages
-      : [GREETING],
+      : [makeGreeting(currentAsset, currentCompanyName)],
   );
   const [isStreaming, setIsStreaming] = useState(false);
   const [toolActivity, setToolActivity] = useState<ToolActivity | null>(null);
 
-  const conversationId = useRef(crypto.randomUUID());
-  const apiHistory     = useRef<ApiMessage[]>(initialApiHistory ?? []);
+  const conversationId  = useRef(crypto.randomUUID());
+  const apiHistory      = useRef<ApiMessage[]>(initialApiHistory ?? []);
   const abortController = useRef<AbortController | null>(null);
+
+  // Keep company context up-to-date in a ref so the latest value is always
+  // used when sendMessage fires, even if it changed since last render.
+  const assetRef       = useRef(currentAsset);
+  const companyRef     = useRef(currentCompanyName);
+  assetRef.current     = currentAsset;
+  companyRef.current   = currentCompanyName;
+
   // Session switching is handled by the parent giving Chat a new `key`
   // (key={currentSessionId}), which remounts the component and re-initialises
   // all useState/useRef values. No useEffect is needed here.
@@ -84,7 +109,32 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
 
       const historySnapshot = [...apiHistory.current];
 
+      // ── Build the API message ─────────────────────────────────────────────
+      // The displayed message stays exactly as the user typed it.
+      // The API message silently appends the selected company so the agent
+      // always knows the context — even when the user just says "show me
+      // the financials" or "what are the risks".
+      // If the user already mentioned the ticker we skip appending it.
+      const ticker  = assetRef.current;
+      const company = companyRef.current;
+      const alreadyMentioned =
+        trimmed.toLowerCase().includes(ticker.toLowerCase()) ||
+        trimmed.toLowerCase().includes(company.toLowerCase());
+      const apiMessage = alreadyMentioned
+        ? trimmed
+        : `${trimmed} [Selected company: ${company} (${ticker})]`;
+
+      // Also prepend a system context message as a second layer of certainty.
+      const contextMessage: ApiMessage = {
+        role: 'system',
+        content:
+          `The user currently has "${company}" (${ticker}) selected in the dashboard. ` +
+          `Default to this company for any query that does not explicitly name another one.`,
+      };
+      const historyWithContext: ApiMessage[] = [contextMessage, ...historySnapshot];
+
       // Optimistically append user turn + empty assistant placeholder
+      // (show the clean original text in the UI, not the annotated API message)
       setMessages(prev => [
         ...prev,
         { role: 'user', content: trimmed },
@@ -98,8 +148,8 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
 
       try {
         for await (const chunk of streamChat(
-          trimmed,
-          historySnapshot,
+          apiMessage,          // annotated message sent to the LLM
+          historyWithContext,  // history + system context
           conversationId.current,
           abortController.current.signal,
         )) {
@@ -145,7 +195,9 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
           }
         }
 
-        // Commit to API history
+        // Commit to API history — store the clean user message (not the
+        // annotated version) so conversation replays look natural. The
+        // system context is re-injected fresh on every new call anyway.
         const newHistory: ApiMessage[] = [
           ...historySnapshot,
           { role: 'user', content: trimmed },

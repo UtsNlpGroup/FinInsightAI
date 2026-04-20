@@ -154,6 +154,13 @@ export default function App() {
   const [navCollapsed,     setNavCollapsed]     = useState(false);
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
 
+  const { companies } = useCompanies();
+
+  const currentCompanyName = useMemo(
+    () => companies.find(c => c.ticker === currentAsset)?.company_name ?? currentAsset,
+    [companies, currentAsset],
+  );
+
   const {
     currentSessionId, currentSession, sessions,
     createSession, switchSession, updateSession, deleteSession,
@@ -196,6 +203,8 @@ export default function App() {
       sessionId={currentSessionId}
       initialMessages={currentSession?.messages}
       initialApiHistory={currentSession?.apiHistory}
+      currentAsset={currentAsset}
+      currentCompanyName={currentCompanyName}
       onUpdate={(messages, apiHistory) => {
         if (currentSessionId) {
           updateSession(currentSessionId, messages, apiHistory);
