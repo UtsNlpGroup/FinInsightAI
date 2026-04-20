@@ -1,0 +1,101 @@
+volumes:
+  finsight-node-modules:
+
+services:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # MCP Server – FastMCP over HTTP
+  # ──────────────────────────────────────────────────────────────────────────
+  mcp-server:
+    build:
+      context: ./MCP
+      dockerfile: Dockerfile
+    container_name: finsight-mcp
+    restart: unless-stopped
+    env_file:
+      - ./MCP/.env
+    environment:
+      MCP_TRANSPORT: http
+      MCP_PORT: 8080
+    volumes:
+      # Hot reload – mount source so watchfiles picks up changes
+      - ./MCP/server.py:/app/server.py
+    command: watchfiles --filter python "python server.py"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Backend – FastAPI + LangGraph agent
+  # ──────────────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: finsight-backend
+    restart: unless-stopped
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    env_file:
+      - ./backend/.env
+    environment:
+      ENVIRONMENT: development
+      MCP_SERVER_URL: http://mcp-server:8080/mcp
+      LLM_MODEL: ${LLM_MODEL:-openai:gpt-5.4-mini}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.0}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-4096}
+      ALLOWED_ORIGINS: '["http://localhost:3000","http://finsight-frontend","http://localhost:5173"]'
+    volumes:
+      # Hot reload – mount app source so uvicorn --reload picks up changes
+      - ./backend/app:/app/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Frontend – Vite / React SPA served by Nginx
+  # ──────────────────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev
+    container_name: finsight-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      # Vite dev-server proxy target: use the Docker-internal service name
+      # so /api/* calls are forwarded correctly from inside the container.
+      API_TARGET: http://finsight-backend:8000
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-https://eypqdoziuoztcspezhes.supabase.co}
+      VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-sb_publishable_oesamD4z5zumsZotrJt_yA_qWsCLurv}
+    volumes:
+      # Hot reload – mount source; node_modules lives in a named volume so it
+      # survives source mounts but can be cleared with: docker volume rm finsight-node-modules
+      - ./frontend:/app
+      - finsight-node-modules:/app/node_modules
+    ports:
+      - "3000:5173"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173/FinInsightAI/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

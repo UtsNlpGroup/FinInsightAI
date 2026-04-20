@@ -1,4 +1,4 @@
-export type PageKey = 'dashboard' | 'disclosures' | 'sentiment' | 'chat';
+export type PageKey = 'dashboard' | 'sentiment' | 'chat'; // 'chat' reached via history only
 
 export interface NavPage {
   key: PageKey;

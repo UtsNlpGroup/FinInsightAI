@@ -1,203 +1,240 @@
+import { useState } from 'react';
 import type { NewsArticle } from '../types';
-import {
-  NEWS_ARTICLES, AI_THEMES, SENTIMENT_DIVERGENCE, MACRO_CONTEXT,
-} from '../data/mockData';
+import { NEWS_ARTICLES, AI_THEMES, SENTIMENT_DIVERGENCE } from '../data/mockData';
+import { useMarketMacro } from '../hooks/useMarketMacro';
+
+// ── Shared primitives ────────────────────────────────────────────────────────
 
 const SENTIMENT_CFG = {
-  BULLISH: { text: 'BULLISH', icon: '↗', color: '#10B981', bg: '#DCFCE7' },
-  BEARISH: { text: 'BEARISH', icon: '↘', color: '#EF4444', bg: '#FEE2E2' },
-  NEUTRAL: { text: 'NEUTRAL', icon: '—',  color: '#64748B', bg: '#F1F5F9' },
+  BULLISH: { label: 'Bullish', icon: '↗', color: '#15803D', bg: '#F0FDF4', border: '#D1FAE5' },
+  BEARISH: { label: 'Bearish', icon: '↘', color: '#DC2626', bg: '#FEF2F2', border: '#FEE2E2' },
+  NEUTRAL: { label: 'Neutral', icon: '—',  color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB' },
 };
 
 function SentimentBadge({ sentiment }: { sentiment: NewsArticle['sentiment'] }) {
-  const cfg = SENTIMENT_CFG[sentiment] ?? SENTIMENT_CFG.NEUTRAL;
+  const cfg = SENTIMENT_CFG[sentiment];
   return (
     <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide"
-      style={{ background: cfg.bg, color: cfg.color }}
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide border shrink-0"
+      style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}
     >
-      {cfg.icon} {cfg.text}
+      {cfg.icon} {cfg.label}
     </span>
   );
 }
 
-function NewsCard({ article }: { article: NewsArticle }) {
-  return (
-    <div
-      className="rounded-xl p-5 mb-4 border flex justify-between gap-6"
-      style={{ background: '#fff', borderColor: '#E2E8F0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
-    >
-      <div className="flex-1">
-        <div className="flex items-center gap-3 mb-3">
-          <span
-            className="text-[11px] font-bold uppercase tracking-wide"
-            style={{ color: '#94A3B8' }}
-          >
-            {article.source} · {article.time}
-          </span>
-          <SentimentBadge sentiment={article.sentiment} />
-        </div>
-        <h3
-          className="text-lg font-bold leading-snug mb-2"
-          style={{ color: '#111827' }}
-        >
-          {article.title}
-        </h3>
-        <p className="text-sm leading-relaxed" style={{ color: '#475569' }}>{article.description}</p>
-      </div>
-      {/* Thumbnail placeholder */}
-      <div
-        className="hidden sm:block w-28 h-28 rounded-lg shrink-0"
-        style={{
-          background: 'linear-gradient(135deg, #334155, #0F172A)',
-          boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)',
-        }}
-      />
-    </div>
-  );
-}
+// ── Live Macro card ───────────────────────────────────────────────────────────
 
-function NewsFeed() {
-  return (
-    <div>
-      {/* Feed Header */}
-      <div className="flex flex-wrap justify-between items-end gap-3 mb-6">
-        <div>
-          <h2 className="text-[28px] font-extrabold mb-1" style={{ color: '#111827' }}>Signal Stream</h2>
-          <p className="text-sm" style={{ color: '#475569' }}>Real-time NLP sentiment analysis of institutional news</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            className="px-4 py-2 rounded-md text-sm font-semibold border-0 cursor-pointer"
-            style={{ background: '#F1F5F9', color: '#475569' }}
-          >
-            All Sources
-          </button>
-          <button
-            className="flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-semibold border-0 cursor-pointer text-white"
-            style={{ background: '#003399', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
-          >
-            <span>≡</span> Sort: Newest
-          </button>
-        </div>
-      </div>
-      {NEWS_ARTICLES.map(a => <NewsCard key={a.title} article={a} />)}
-    </div>
-  );
-}
+function MacroCard() {
+  const { items, loading } = useMarketMacro(); // fetches all 5 by default
 
-function AiInsightsPanel() {
-  const themes = AI_THEMES;
-  const divergence = SENTIMENT_DIVERGENCE;
+  const fmt = (n: number | null | undefined, d = 2) =>
+    n == null ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
 
   return (
-    <div
-      className="rounded-xl p-6 mb-6 border"
-      style={{ background: '#F8FAFC', borderColor: '#E2E8F0' }}
-    >
-      {/* Extracted Themes */}
-      <div className="flex items-center gap-3 mb-4">
-        <div
-          className="w-7 h-7 rounded-md flex items-center justify-center text-sm font-bold"
-          style={{ background: '#E0E7FF', color: '#4338CA' }}
-        >
-          ✦
-        </div>
-        <span className="text-base font-extrabold" style={{ color: '#111827' }}>Extracted AI Themes</span>
-      </div>
-      <div className="mb-8">
-        {themes.map(t => (
-          <span
-            key={t}
-            className="inline-block px-3.5 py-1.5 rounded-full text-xs font-semibold mr-2 mb-2.5 border cursor-pointer"
-            style={{
-              background: '#fff',
-              color: '#0052CC',
-              borderColor: '#D1D5DB',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-            }}
-          >
-            {t}
-          </span>
-        ))}
-      </div>
+    <div className="rounded-xl border border-slate-100 bg-white px-4 py-3.5">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">
+        Macro Market Context
+      </p>
 
-      {/* Divergence Bars */}
-      <div
-        className="text-[11px] font-extrabold uppercase tracking-wide mb-4"
-        style={{ color: '#64748B' }}
-      >
-        Sentiment Divergence
-      </div>
-      {Object.values(divergence).map(item => {
-        const isPositive = item.direction === 'Positive';
-        const barColor = isPositive ? '#10B981' : '#EF4444';
-        return (
-          <div key={item.label} className="mb-4">
-            <div className="flex justify-between items-baseline mb-1.5">
-              <span className="text-sm font-semibold" style={{ color: '#111827' }}>{item.label}</span>
-              <span className="text-sm font-bold" style={{ color: barColor }}>
-                {item.value}% {item.direction}
-              </span>
+      {loading && items.length === 0 ? (
+        <div className="space-y-1.5">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="flex justify-between items-center px-3 py-2 rounded-lg animate-pulse" style={{ background: '#F9FAFB' }}>
+              <div className="h-3 w-20 bg-slate-200 rounded" />
+              <div className="h-3 w-12 bg-slate-200 rounded" />
             </div>
-            <div className="w-full h-1.5 rounded overflow-hidden" style={{ background: '#E2E8F0' }}>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {items.map(item => {
+            // Yields: display the actual price as "X.XX%"
+            // Indices: display the daily change_pct as "+X.XX%"
+            const displayValue = item.is_yield
+              ? `${fmt(item.price, 2)}%`
+              : item.change_pct != null
+              ? `${item.change_pct >= 0 ? '+' : ''}${fmt(item.change_pct, 2)}%`
+              : '—';
+
+            const color = item.is_yield
+              ? '#6B7280'
+              : (item.change_pct ?? 0) >= 0
+              ? '#10B981'
+              : '#EF4444';
+
+            return (
               <div
-                className="h-full rounded"
-                style={{ width: `${item.value}%`, background: barColor }}
-              />
-            </div>
-          </div>
-        );
-      })}
+                key={item.key}
+                className="flex justify-between items-center px-3 py-2 rounded-lg"
+                style={{ background: '#F9FAFB', border: '1px solid #F3F4F6' }}
+              >
+                <span className="text-[11px] font-medium text-slate-600">{item.label}</span>
+                <span className="text-[12px] font-bold" style={{ color }}>{displayValue}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
     </div>
   );
 }
 
-function MacroPanel() {
-  const macro = MACRO_CONTEXT;
+// ── Overview tab ─────────────────────────────────────────────────────────────
 
+function OverviewTab() {
   return (
-    <div
-      className="rounded-xl p-6 border"
-      style={{ background: '#fff', borderColor: '#E2E8F0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
-    >
-      <h3 className="text-base font-extrabold mb-4" style={{ color: '#111827' }}>Macro Market Context</h3>
-      <div className="space-y-2 mb-4">
-        {macro.map(item => {
-          const color = item.value.startsWith('+')
-            ? '#16A34A'
-            : item.value.startsWith('-')
-              ? '#DC2626'
-              : '#475569';
-          return (
-            <div
-              key={item.label}
-              className="flex justify-between items-center rounded-lg px-4 py-3"
-              style={{ background: '#F1F5F9' }}
+    <div className="space-y-3 pt-1">
+
+      {/* AI Themes card */}
+      <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3.5">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-6 h-6 rounded-md flex items-center justify-center text-xs shrink-0" style={{ background: '#E0E7FF' }}>
+            ✦
+          </div>
+          <p className="text-xs font-bold text-slate-800">Extracted AI Themes</p>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {AI_THEMES.map(t => (
+            <span
+              key={t}
+              className="px-2 py-0.5 rounded-full text-[10px] font-medium border cursor-pointer hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+              style={{ background: '#F9FAFB', color: '#374151', borderColor: '#E5E7EB' }}
             >
-              <span className="text-sm font-semibold" style={{ color: '#334155' }}>{item.label}</span>
-              <span className="text-sm font-bold" style={{ color }}>{item.value}</span>
-            </div>
-          );
-        })}
+              {t}
+            </span>
+          ))}
+        </div>
       </div>
-      <div className="text-center mt-4">
-        <span className="text-sm font-bold cursor-pointer" style={{ color: '#0052CC' }}>
-          View Detailed Macro Report
-        </span>
+
+      {/* Sentiment Divergence card */}
+      <div className="rounded-xl border border-slate-100 bg-white px-4 py-3.5">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">
+          Sentiment Divergence
+        </p>
+        <div className="space-y-3.5">
+          {Object.values(SENTIMENT_DIVERGENCE).map(item => {
+            const pos   = item.direction === 'Positive';
+            const color = pos ? '#10B981' : '#EF4444';
+            const bg    = pos ? '#F0FDF4' : '#FEF2F2';
+            const trackBg = pos ? '#D1FAE5' : '#FEE2E2';
+            return (
+              <div key={item.label}>
+                <div className="flex justify-between items-baseline mb-1.5">
+                  <span className="text-[11px] font-semibold text-slate-700">{item.label}</span>
+                  <span
+                    className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                    style={{ background: bg, color }}
+                  >
+                    {item.value}% {item.direction}
+                  </span>
+                </div>
+                <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: trackBg }}>
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${item.value}%`, background: color }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
+
+      {/* Macro Market Context — live data */}
+      <MacroCard />
+
     </div>
   );
 }
+
+// ── News tab ──────────────────────────────────────────────────────────────────
+
+function NewsTab() {
+  return (
+    <div className="pt-1 space-y-2">
+      {NEWS_ARTICLES.map(article => (
+        <div
+          key={article.title}
+          className="rounded-xl border border-slate-100 bg-white p-3.5 hover:border-slate-200 hover:bg-slate-50/50 transition-colors cursor-pointer"
+        >
+          {/* Source + badge */}
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <span className="text-[9px] font-semibold uppercase tracking-widest truncate text-slate-400">
+              {article.source} · {article.time}
+            </span>
+            <SentimentBadge sentiment={article.sentiment} />
+          </div>
+
+          {/* Title */}
+          <h3 className="text-[12px] font-semibold leading-snug mb-1 line-clamp-2 text-slate-900">
+            {article.title}
+          </h3>
+
+          {/* Description */}
+          <p className="text-[10px] leading-relaxed line-clamp-2 text-slate-500">
+            {article.description}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
+
+const TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'news',     label: 'News'     },
+];
 
 export default function Sentiment() {
+  const [activeTab, setActiveTab] = useState('overview');
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
-      <NewsFeed />
-      <div>
-        <AiInsightsPanel />
-        <MacroPanel />
+    <div className="flex flex-col h-full antialiased text-slate-900">
+
+      {/* Panel header */}
+      <div className="shrink-0 px-4 pt-5 pb-3 border-b border-slate-100">
+        <div className="flex items-center gap-2 mb-1">
+          <span
+            className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded"
+            style={{ background: '#111827', color: '#fff' }}
+          >
+            NLP
+          </span>
+          <span className="text-[10px] font-medium text-slate-400">Real-time analysis</span>
+        </div>
+        <h1 className="text-base font-extrabold tracking-tight text-slate-900">
+          Market Sentiment
+        </h1>
       </div>
+
+      {/* Tab bar */}
+      <div className="shrink-0 px-3 pt-3 pb-2">
+        <div className="flex gap-0.5 p-1 bg-slate-100 rounded-xl no-scrollbar">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 px-2 py-1.5 text-[10px] font-bold rounded-lg whitespace-nowrap transition-all ${
+                activeTab === tab.id
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto px-4 pb-6">
+        {activeTab === 'overview' ? <OverviewTab /> : <NewsTab />}
+      </div>
+
     </div>
   );
 }
