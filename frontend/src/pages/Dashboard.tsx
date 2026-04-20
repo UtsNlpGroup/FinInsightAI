@@ -7,7 +7,7 @@ import {
 } from '../data/mockData';
 import { useStockPrice } from '../hooks/useStockPrice';
 import type { StockQuote } from '../hooks/useStockPrice';
-import { TrendingUp, TrendingDown, Sparkles, ChevronRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Sparkles } from 'lucide-react';
 
 function fmt(n: number | null | undefined, decimals = 2): string {
   if (n == null) return '—';
@@ -210,10 +210,14 @@ export default function RefinedDashboard({ currentAsset = 'AAPL' }: { currentAss
             {(tabData[activeTab] ?? []).map((card: DisclosureCard) => (
               <div
                 key={card.title}
-                className="rounded-xl border border-slate-200 bg-white hover:border-indigo-200 transition-colors group overflow-hidden"
+                className="rounded-xl border border-slate-200 bg-white hover:border-indigo-200 transition-all duration-300 group overflow-hidden cursor-default"
+                style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 12px rgba(99,102,241,0.10)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)'; }}
               >
                 <div className="p-3.5">
-                  <div className="flex items-start gap-2.5 mb-2">
+                  {/* Header row — always visible */}
+                  <div className="flex items-start gap-2.5 mb-1.5">
                     <div className="shrink-0 w-7 h-7 flex items-center justify-center bg-slate-50 group-hover:bg-indigo-50 rounded-lg transition-colors text-base leading-none">
                       {card.icon}
                     </div>
@@ -224,16 +228,18 @@ export default function RefinedDashboard({ currentAsset = 'AAPL' }: { currentAss
                           {card.pageRef}
                         </span>
                       </div>
+                      {/* Badge always visible below title */}
+                      <div className="mt-1">
+                        <Badge level={card.impactLevel} label={card.impact} />
+                      </div>
                     </div>
                   </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-2 mb-2.5">
-                    {card.description}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <Badge level={card.impactLevel} label={card.impact} />
-                    <button className="flex items-center gap-0.5 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors">
-                      Details <ChevronRight size={10} strokeWidth={2.5} />
-                    </button>
+
+                  {/* Description — clipped by default, fully shown on hover */}
+                  <div className="overflow-hidden transition-all duration-300 ease-in-out max-h-[2.4rem] group-hover:max-h-40">
+                    <p className="text-[11px] text-slate-500 group-hover:text-slate-700 leading-relaxed transition-colors duration-200 pt-0.5">
+                      {card.description}
+                    </p>
                   </div>
                 </div>
               </div>
