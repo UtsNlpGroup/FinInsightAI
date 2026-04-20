@@ -2,7 +2,7 @@ import { useState, useRef, useMemo, useEffect } from 'react';
 import {
   LogOut, Search, X, LayoutDashboard, TrendingUp,
   Plus, BarChart3, MessageCircle, Trash2, Clock, MessageSquare,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, ChevronDown, Cpu,
 } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Sentiment from './pages/Sentiment';
@@ -144,6 +144,159 @@ function CompanySearch({
   );
 }
 
+// ── Model picker ──────────────────────────────────────────────────────────────
+
+interface ModelInfo {
+  id: string;
+  label: string;
+  is_default: boolean;
+}
+
+const FALLBACK_MODELS: ModelInfo[] = [
+  { id: 'openai:gpt-5.4-mini',  label: 'GPT-5.4 Mini',  is_default: true  },
+  { id: 'openai:gpt-5.4-nano',  label: 'GPT-5.4 Nano',  is_default: false },
+  { id: 'openai:gpt-4.1',       label: 'GPT-4.1',        is_default: false },
+  { id: 'openai:gpt-4.1-mini',  label: 'GPT-4.1 Mini',  is_default: false },
+  { id: 'openai:gpt-4o',        label: 'GPT-4o',         is_default: false },
+  { id: 'openai:gpt-4o-mini',   label: 'GPT-4o Mini',   is_default: false },
+];
+
+function useModels() {
+  const [models,       setModels]       = useState<ModelInfo[]>(FALLBACK_MODELS);
+  const [defaultModel, setDefaultModel] = useState('openai:gpt-5.4-mini');
+
+  useEffect(() => {
+    fetch('/api/v1/agent/models')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.models) {
+          setModels(data.models);
+          setDefaultModel(data.default_model);
+        }
+      })
+      .catch(() => { /* keep fallbacks */ });
+  }, []);
+
+  return { models, defaultModel };
+}
+
+function ModelPicker({
+  models,
+  defaultModel,
+  selected,
+  onChange,
+  collapsed,
+}: {
+  models: ModelInfo[];
+  defaultModel: string;
+  selected: string;
+  onChange: (id: string) => void;
+  collapsed: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function outside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', outside);
+    return () => document.removeEventListener('mousedown', outside);
+  }, []);
+
+  const current = models.find(m => m.id === selected) ?? models[0];
+  const isDefault = selected === defaultModel;
+
+  if (collapsed) {
+    return (
+      <div className="flex justify-center py-2">
+        <button
+          onClick={() => setOpen(o => !o)}
+          title={`Model: ${current?.label}`}
+          className="w-8 h-8 flex items-center justify-center rounded-lg border-0 cursor-pointer transition-colors relative"
+          style={{ background: open ? '#EFF6FF' : 'transparent', color: open ? '#2563EB' : '#6B7280' }}
+          onMouseEnter={e => { if (!open) (e.currentTarget as HTMLButtonElement).style.background = '#F9FAFB'; }}
+          onMouseLeave={e => { if (!open) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+        >
+          <Cpu size={15} strokeWidth={2} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={ref} className="relative px-2 py-2">
+      {/* Label */}
+      <p className="text-[10px] font-semibold uppercase tracking-widest px-1 mb-1.5" style={{ color: '#9CA3AF' }}>
+        Model
+      </p>
+
+      {/* Trigger button */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all text-left"
+        style={{
+          background: open ? '#EFF6FF' : '#F9FAFB',
+          borderColor: open ? '#BFDBFE' : '#E5E7EB',
+          color: '#111827',
+        }}
+      >
+        <Cpu size={13} strokeWidth={2} style={{ color: '#6366F1', flexShrink: 0 }} />
+        <span className="flex-1 text-xs font-medium truncate">{current?.label ?? '—'}</span>
+        {isDefault && (
+          <span
+            className="text-[9px] font-semibold px-1.5 py-0.5 rounded shrink-0"
+            style={{ background: '#EEF2FF', color: '#4F46E5' }}
+          >
+            default
+          </span>
+        )}
+        <ChevronDown size={11} strokeWidth={2.5} style={{ color: '#9CA3AF', flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }} />
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div
+          className="absolute left-2 right-2 bottom-full mb-1 z-50 overflow-hidden"
+          style={{
+            background: '#FFFFFF',
+            border: '1px solid #E5E7EB',
+            borderRadius: 12,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+          }}
+        >
+          {models.map(m => {
+            const active = m.id === selected;
+            return (
+              <button
+                key={m.id}
+                onMouseDown={() => { onChange(m.id); setOpen(false); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left border-0 cursor-pointer transition-colors"
+                style={{ background: active ? '#EFF6FF' : 'transparent' }}
+                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = '#F9FAFB'; }}
+                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = active ? '#EFF6FF' : 'transparent'; }}
+              >
+                <Cpu size={12} strokeWidth={2} style={{ color: active ? '#2563EB' : '#9CA3AF', flexShrink: 0 }} />
+                <span className="flex-1 text-xs font-medium truncate" style={{ color: active ? '#2563EB' : '#374151' }}>
+                  {m.label}
+                </span>
+                {m.id === defaultModel && (
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded shrink-0" style={{ background: '#EEF2FF', color: '#4F46E5' }}>
+                    default
+                  </span>
+                )}
+                {active && (
+                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#2563EB' }} />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -153,6 +306,13 @@ export default function App() {
   const [mobileView,      setMobileView]      = useState<MobileView>('chat');
   const [navCollapsed,     setNavCollapsed]     = useState(false);
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
+
+  const { models, defaultModel } = useModels();
+  const [selectedModel, setSelectedModel] = useState('');
+  // Once default loads from server, seed the selection (only once)
+  useEffect(() => {
+    if (defaultModel && !selectedModel) setSelectedModel(defaultModel);
+  }, [defaultModel, selectedModel]);
 
   const { companies } = useCompanies();
 
@@ -205,6 +365,7 @@ export default function App() {
       initialApiHistory={currentSession?.apiHistory}
       currentAsset={currentAsset}
       currentCompanyName={currentCompanyName}
+      model={selectedModel || defaultModel}
       onUpdate={(messages, apiHistory) => {
         if (currentSessionId) {
           updateSession(currentSessionId, messages, apiHistory);
@@ -366,6 +527,20 @@ export default function App() {
               );
             })}
           </nav>
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Model picker — anchored to bottom of nav */}
+          <div className="shrink-0" style={{ borderTop: '1px solid #F3F4F6' }}>
+            <ModelPicker
+              models={models}
+              defaultModel={defaultModel}
+              selected={selectedModel || defaultModel}
+              onChange={setSelectedModel}
+              collapsed={navCollapsed}
+            />
+          </div>
         </aside>
 
         {/* ── 2. Left content panel (desktop md+, animated) ── */}

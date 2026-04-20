@@ -508,6 +508,7 @@ interface ChatProps {
   onUpdate?: (messages: ChatMessage[], apiHistory: ApiMessage[]) => void;
   currentAsset?: string;
   currentCompanyName?: string;
+  model?: string;
 }
 
 export default function Chat({
@@ -516,6 +517,7 @@ export default function Chat({
   onUpdate,
   currentAsset = 'AAPL',
   currentCompanyName = 'Apple Inc.',
+  model,
 }: ChatProps) {
   const { messages, isStreaming, toolActivity, sendMessage, cancelStream } = useChat({
     initialMessages,
@@ -523,6 +525,7 @@ export default function Chat({
     onUpdate,
     currentAsset,
     currentCompanyName,
+    model,
   });
   const bottomRef = useRef<HTMLDivElement>(null);
 

@@ -1,11 +1,12 @@
 """
 FinsightAI MCP Server
 =====================
-FastMCP server exposing four tools:
+FastMCP server exposing five tools:
   1. get_company_financials  – live snapshot of key financial metrics (yfinance .info)
   2. get_price_history       – historical OHLCV price data for charting
   3. get_fundamentals        – full income / balance / cashflow statements (annual & quarterly)
-  4. vector_store            – add documents to / query a ChromaDB collection
+  4. place_order             – submit a paper-trading order via Alpaca Paper API
+  5. vector_store            – add documents to / query a ChromaDB collection
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ import os
 from typing import Any, Literal
 
 import pandas as pd
+import requests
 
 import chromadb
 import yfinance as yf
@@ -354,7 +356,147 @@ def get_fundamentals(
 
 
 # ---------------------------------------------------------------------------
-# Tool 4 – Chroma vector store (add / query)
+# Tool 4 – Alpaca Paper Trading: place order
+# ---------------------------------------------------------------------------
+
+_ALPACA_KEY    = os.getenv("ALPACA_API_KEY", "")
+_ALPACA_SECRET = os.getenv("ALPACA_SECRET_KEY", "")
+_ALPACA_URL    = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets/v2")
+
+_ALPACA_HEADERS = {
+    "APCA-API-KEY-ID":     _ALPACA_KEY,
+    "APCA-API-SECRET-KEY": _ALPACA_SECRET,
+    "Content-Type":        "application/json",
+}
+
+
+class OrderResult(BaseModel):
+    order_id:     str
+    client_order_id: str
+    ticker:       str
+    side:         str          # "buy" | "sell"
+    order_type:   str          # "market" | "limit" | "stop" | "stop_limit"
+    qty:          float | None
+    notional:     float | None  # dollar amount (mutually exclusive with qty)
+    time_in_force: str
+    status:       str
+    filled_qty:   float | None
+    filled_avg_price: float | None
+    submitted_at: str | None
+    message:      str          # human-readable summary
+
+
+@mcp.tool
+def place_order(
+    ticker: str,
+    side: Literal["buy", "sell"],
+    order_type: Literal["market", "limit", "stop", "stop_limit"] = "market",
+    qty: float | None = None,
+    notional: float | None = None,
+    limit_price: float | None = None,
+    stop_price: float | None = None,
+    time_in_force: Literal["day", "gtc", "opg", "cls", "ioc", "fok"] = "day",
+) -> OrderResult:
+    """
+    Place a paper-trading order via the Alpaca Paper API.
+
+    IMPORTANT: This always targets the **paper** account (https://paper-api.alpaca.markets/v2).
+    No real money is involved.
+
+    Supply either `qty` (number of shares) OR `notional` (dollar amount), not both.
+    For fractional / notional orders the order_type must be "market" and time_in_force must be "day".
+
+    Args:
+        ticker:        Stock symbol (e.g. "AAPL", "TSLA").
+        side:          "buy" to open a long, "sell" to close / short.
+        order_type:    "market" | "limit" | "stop" | "stop_limit"  (default: "market").
+        qty:           Number of shares (can be fractional, e.g. 0.5).
+        notional:      Dollar amount to invest (e.g. 100.00). Mutually exclusive with qty.
+        limit_price:   Required for "limit" and "stop_limit" orders.
+        stop_price:    Required for "stop" and "stop_limit" orders.
+        time_in_force: Order duration: "day" (default), "gtc", "opg", "cls", "ioc", "fok".
+
+    Returns:
+        OrderResult with the confirmed order details from Alpaca.
+    """
+    if qty is None and notional is None:
+        return OrderResult(
+            order_id="", client_order_id="", ticker=ticker.upper(), side=side,
+            order_type=order_type, qty=None, notional=None,
+            time_in_force=time_in_force, status="rejected",
+            filled_qty=None, filled_avg_price=None, submitted_at=None,
+            message="You must provide either `qty` (shares) or `notional` (dollar amount).",
+        )
+
+    payload: dict[str, Any] = {
+        "symbol":        ticker.upper(),
+        "side":          side,
+        "type":          order_type,
+        "time_in_force": time_in_force,
+    }
+    if qty is not None:
+        payload["qty"] = str(qty)
+    if notional is not None:
+        payload["notional"] = str(notional)
+    if limit_price is not None:
+        payload["limit_price"] = str(limit_price)
+    if stop_price is not None:
+        payload["stop_price"] = str(stop_price)
+
+    try:
+        resp = requests.post(
+            f"{_ALPACA_URL}/orders",
+            headers=_ALPACA_HEADERS,
+            json=payload,
+            timeout=15,
+        )
+        data = resp.json()
+    except Exception as exc:
+        return OrderResult(
+            order_id="", client_order_id="", ticker=ticker.upper(), side=side,
+            order_type=order_type, qty=qty, notional=notional,
+            time_in_force=time_in_force, status="error",
+            filled_qty=None, filled_avg_price=None, submitted_at=None,
+            message=f"Request failed: {exc}",
+        )
+
+    if resp.status_code not in (200, 201):
+        return OrderResult(
+            order_id="", client_order_id="", ticker=ticker.upper(), side=side,
+            order_type=order_type, qty=qty, notional=notional,
+            time_in_force=time_in_force, status="rejected",
+            filled_qty=None, filled_avg_price=None, submitted_at=None,
+            message=data.get("message", str(data)),
+        )
+
+    filled_qty = data.get("filled_qty")
+    filled_avg = data.get("filled_avg_price")
+    action = f"{side.upper()} {qty or notional} {'shares' if qty else 'USD'} of {ticker.upper()}"
+    summary = (
+        f"Paper order placed: {action}. "
+        f"Status: {data.get('status', 'unknown')}. "
+        f"Order ID: {data.get('id', '')}."
+    )
+
+    return OrderResult(
+        order_id=data.get("id", ""),
+        client_order_id=data.get("client_order_id", ""),
+        ticker=ticker.upper(),
+        side=side,
+        order_type=order_type,
+        qty=float(qty) if qty is not None else None,
+        notional=float(notional) if notional is not None else None,
+        time_in_force=time_in_force,
+        status=data.get("status", "unknown"),
+        filled_qty=float(filled_qty) if filled_qty else None,
+        filled_avg_price=float(filled_avg) if filled_avg else None,
+        submitted_at=data.get("submitted_at"),
+        message=summary,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tool 5 – Chroma vector store (add / query)
 # ---------------------------------------------------------------------------
 
 class VectorStoreInput(BaseModel):

@@ -66,6 +66,14 @@ class ChatRequest(BaseModel):
         default=False,
         description="When true, use the /stream endpoint instead of /chat for SSE delivery.",
     )
+    model: str | None = Field(
+        default=None,
+        description=(
+            "Optional LLM model override for this request. "
+            "Must be a full LangChain model ID, e.g. 'openai:gpt-4.1'. "
+            "When omitted the server default (LLM_MODEL env var) is used."
+        ),
+    )
 
 
 # ── Tool-use trace ────────────────────────────────────────────────────────────
@@ -114,8 +122,19 @@ class StreamChunk(BaseModel):
 
 # ── Health / meta ─────────────────────────────────────────────────────────────
 
+class ModelInfo(BaseModel):
+    id: str        # full LangChain model ID, e.g. "openai:gpt-4.1"
+    label: str     # display name, e.g. "GPT-4.1"
+    is_default: bool = False
+
+
 class HealthResponse(BaseModel):
     status: str = "ok"
     mcp_connected: bool
     llm_model: str
     version: str
+
+
+class ModelsResponse(BaseModel):
+    default_model: str
+    models: list[ModelInfo]

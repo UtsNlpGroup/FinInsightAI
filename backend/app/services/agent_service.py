@@ -95,19 +95,20 @@ class AgentService:
 
     # ── Internal builders ─────────────────────────────────────────────────────
 
-    def _build_agent(self) -> Any:
+    def _build_agent(self, model: str | None = None) -> Any:
         """
         Retrieve MCP tools and produce a ready-to-invoke LangChain agent.
 
-        Tools are fetched from the cached MCPClientManager so that every
-        request reuses the same HTTP connection to the MCP server.
+        Args:
+            model: Optional LangChain model ID override (e.g. "openai:gpt-4.1").
+                   Falls back to the server default when ``None``.
         """
         tools = self._mcp_manager.get_tools()
         logger.info(
             "Agent built | available_tools=[%s]",
             ", ".join(t.name for t in tools),
         )
-        return self._factory.create(tools)
+        return self._factory.create(tools, model=model)
 
     def _build_input(self, request: ChatRequest) -> dict:
         """
@@ -146,7 +147,7 @@ class AgentService:
             RuntimeError: If the MCP client is not connected.
             Exception: Any error raised by the LLM or MCP tools is propagated.
         """
-        agent = self._build_agent()
+        agent = self._build_agent(model=request.model)
         agent_input = self._build_input(request)
 
         config = {"recursion_limit": self._settings.agent_recursion_limit}
@@ -197,7 +198,7 @@ class AgentService:
           - Final completion       (event=DONE)
           - Any error              (event=ERROR)
         """
-        agent = self._build_agent()
+        agent = self._build_agent(model=request.model)
         agent_input = self._build_input(request)
         config = {"recursion_limit": self._settings.agent_recursion_limit}
         cid = request.conversation_id

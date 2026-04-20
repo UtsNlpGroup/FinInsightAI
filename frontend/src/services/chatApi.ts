@@ -44,15 +44,19 @@ export async function* streamChat(
   history: ApiMessage[],
   conversationId: string,
   signal?: AbortSignal,
+  model?: string,
 ): AsyncGenerator<StreamChunk> {
+  const body: Record<string, unknown> = {
+    message,
+    history,
+    conversation_id: conversationId,
+  };
+  if (model) body.model = model;
+
   const response = await fetch(STREAM_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      message,
-      history,
-      conversation_id: conversationId,
-    }),
+    body: JSON.stringify(body),
     signal,
   });
 

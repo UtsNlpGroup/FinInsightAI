@@ -53,6 +53,11 @@ export interface UseChatOptions {
    */
   currentAsset?: string;
   currentCompanyName?: string;
+  /**
+   * Optional LLM model override (full LangChain ID, e.g. "openai:gpt-4.1").
+   * When omitted the server default is used.
+   */
+  model?: string;
 }
 
 export interface UseChatReturn {
@@ -72,6 +77,7 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
     onUpdate,
     currentAsset = 'AAPL',
     currentCompanyName = 'Apple Inc.',
+    model,
   } = options;
 
   // Seed from saved session, or show the greeting for a brand-new session
@@ -87,12 +93,14 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
   const apiHistory      = useRef<ApiMessage[]>(initialApiHistory ?? []);
   const abortController = useRef<AbortController | null>(null);
 
-  // Keep company context up-to-date in a ref so the latest value is always
-  // used when sendMessage fires, even if it changed since last render.
+  // Keep company context + model up-to-date in refs so the latest value is
+  // always used when sendMessage fires, even if it changed since last render.
   const assetRef       = useRef(currentAsset);
   const companyRef     = useRef(currentCompanyName);
+  const modelRef       = useRef(model);
   assetRef.current     = currentAsset;
   companyRef.current   = currentCompanyName;
+  modelRef.current     = model;
 
   // Session switching is handled by the parent giving Chat a new `key`
   // (key={currentSessionId}), which remounts the component and re-initialises
@@ -148,10 +156,11 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
 
       try {
         for await (const chunk of streamChat(
-          apiMessage,          // annotated message sent to the LLM
-          historyWithContext,  // history + system context
+          apiMessage,              // annotated message sent to the LLM
+          historyWithContext,      // history + system context
           conversationId.current,
           abortController.current.signal,
+          modelRef.current,        // optional model override
         )) {
           switch (chunk.event) {
             case 'token': {

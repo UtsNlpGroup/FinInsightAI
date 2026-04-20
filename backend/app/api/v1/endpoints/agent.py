@@ -21,6 +21,8 @@ from app.schemas.agent import (
     ChatRequest,
     ChatResponse,
     HealthResponse,
+    ModelInfo,
+    ModelsResponse,
     StreamChunk,
 )
 from app.services.agent_service import AgentService
@@ -29,6 +31,16 @@ from app.services.mcp_manager import MCPClientManager
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/agent", tags=["Agent"])
+
+# All models available for selection in the UI (full LangChain IDs)
+_AVAILABLE_MODELS: list[dict] = [
+    {"id": "openai:gpt-5.4-mini",  "label": "GPT-5.4 Mini"},
+    {"id": "openai:gpt-5.4-nano",  "label": "GPT-5.4 Nano"},
+    {"id": "openai:gpt-4.1",       "label": "GPT-4.1"},
+    {"id": "openai:gpt-4.1-mini",  "label": "GPT-4.1 Mini"},
+    {"id": "openai:gpt-4o",        "label": "GPT-4o"},
+    {"id": "openai:gpt-4o-mini",   "label": "GPT-4o Mini"},
+]
 
 
 # ── POST /chat ────────────────────────────────────────────────────────────────
@@ -116,6 +128,29 @@ async def stream(
             "X-Accel-Buffering": "no",
             "Connection": "keep-alive",
         },
+    )
+
+
+# ── GET /models ───────────────────────────────────────────────────────────────
+
+@router.get(
+    "/models",
+    response_model=ModelsResponse,
+    summary="List available LLM models and the current server default",
+)
+async def list_models(settings: Settings = Depends(get_settings)) -> ModelsResponse:
+    """Return all selectable models and which one is the server default."""
+    default = settings.llm_model
+    return ModelsResponse(
+        default_model=default,
+        models=[
+            ModelInfo(
+                id=m["id"],
+                label=m["label"],
+                is_default=(m["id"] == default),
+            )
+            for m in _AVAILABLE_MODELS
+        ],
     )
 
 

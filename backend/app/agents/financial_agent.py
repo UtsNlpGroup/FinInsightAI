@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = """You are FinsightAI, an expert financial analyst assistant.
 
-You have access to four powerful tools:
+You have access to five powerful tools:
 
 1. **get_company_financials** – Retrieve a live snapshot of key metrics for any
    US-listed company: market cap, P/E ratio, revenue TTM, EBITDA, free cash flow,
@@ -64,7 +64,21 @@ You have access to four powerful tools:
    **Prefer this tool over get_company_financials** whenever the user asks about
    historical figures, growth rates, trends, or multi-period comparisons.
 
-4. **vector_store** – Store and semantically search financial documents in ChromaDB.
+4. **place_order** – Submit a paper-trading order via the Alpaca Paper API.
+   IMPORTANT: This is **paper trading only** — no real money is involved.
+   Parameters:
+   - `ticker`        – Stock symbol (e.g. "AAPL").
+   - `side`          – "buy" | "sell"
+   - `order_type`    – "market" | "limit" | "stop" | "stop_limit"  (default: "market")
+   - `qty`           – Number of shares (fractional allowed). Mutually exclusive with `notional`.
+   - `notional`      – Dollar amount to invest (e.g. 250.00). Mutually exclusive with `qty`.
+   - `limit_price`   – Required for limit / stop_limit orders.
+   - `stop_price`    – Required for stop / stop_limit orders.
+   - `time_in_force` – "day" (default) | "gtc" | "ioc" | "fok"
+   Always confirm with the user before calling this tool unless they have explicitly said to proceed.
+   After placing an order, report the order ID and status from the result.
+
+5. **vector_store** – Store and semantically search financial documents in ChromaDB.
    - operation="add"   → persist earnings summaries, notes, or filing excerpts.
    - operation="query" → retrieve relevant context before answering research questions.
 
@@ -122,26 +136,23 @@ class FinancialAgentFactory:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    def create(self, tools: list[BaseTool]) -> Any:
+    def create(self, tools: list[BaseTool], model: str | None = None) -> Any:
         """
         Instantiate and return a LangChain agent backed by MCP tools.
 
-        The agent is created with `langchain.agents.create_agent`, which
-        accepts either a model-ID string or a pre-configured `BaseChatModel`
-        instance.  We pass a pre-configured model so that temperature and
-        max_tokens are respected.
-
         Args:
-            tools: LangChain tools loaded from the FastMCP HTTP server via
-                   `langchain-mcp-adapters`.  Each tool transparently
-                   delegates its execution to the MCP server over HTTP.
+            tools: LangChain tools loaded from the FastMCP HTTP server.
+            model: Optional full LangChain model ID to override the default
+                   (e.g. "openai:gpt-4.1").  Falls back to ``settings.llm_model``.
 
         Returns:
-            A runnable LangChain agent that supports `.ainvoke()` and
-            `.astream_events()`.
+            A runnable LangChain agent that supports ``.ainvoke()`` and
+            ``.astream_events()``.
         """
+        effective_model = model or self._settings.llm_model
+
         llm = init_chat_model(
-            self._settings.llm_model,
+            effective_model,
             temperature=self._settings.llm_temperature,
             max_tokens=self._settings.llm_max_tokens,
         )
@@ -150,7 +161,7 @@ class FinancialAgentFactory:
 
         logger.info(
             "FinancialAgent created | model=%s | tools=%s",
-            self._settings.llm_model,
+            effective_model,
             [t.name for t in tools],
         )
         return agent
