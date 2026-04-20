@@ -50,33 +50,32 @@ async def health_check(request):
 # ChromaDB client (remote HTTPS via CHROMA_URL, or local persistent fallback)
 # ---------------------------------------------------------------------------
 
-_CHROMA_URL = os.getenv("CHROMA_URL", "")
-_CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_data")
+_CHROMA_URL        = os.getenv("CHROMA_URL", "")
 _DEFAULT_COLLECTION = os.getenv("CHROMA_DEFAULT_COLLECTION", "stream2_sentiment")
-
-_CF_CLIENT_ID = os.getenv("CF-ACCESS-CLIENT-ID", "")
-_CF_CLIENT_SECRET = os.getenv("CF-ACCESS-CLIENT-SECRET", "")
-
-_OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+_CF_CLIENT_ID      = os.getenv("CF-ACCESS-CLIENT-ID", "")
+_CF_CLIENT_SECRET  = os.getenv("CF-ACCESS-CLIENT-SECRET", "")
+_OPENAI_API_KEY    = os.getenv("OPENAI_API_KEY", "")
 
 
 def _get_chroma_client() -> chromadb.ClientAPI:
-    """Return a ChromaDB client based on environment configuration.
+    """Return a ChromaDB HttpClient connected to the remote ChromaDB instance.
 
-    When CHROMA_URL is set the server connects to the remote ChromaDB instance.
-    Provide the full URL including scheme, e.g. https://chroma.taskcomply.com.
-    Cloudflare Access service-token headers are attached automatically when the
-    corresponding env vars are present.
+    CHROMA_URL must be set (e.g. https://chroma.taskcomply.com).
+    Cloudflare Access service-token headers are attached automatically when
+    CF-ACCESS-CLIENT-ID / CF-ACCESS-CLIENT-SECRET are present in the environment.
     """
-    if _CHROMA_URL:
-        return chromadb.HttpClient(
-            host=_CHROMA_URL,
-            headers={
-                "CF-Access-Client-Id": _CF_CLIENT_ID,
-                "CF-Access-Client-Secret": _CF_CLIENT_SECRET,
-            },
+    if not _CHROMA_URL:
+        raise RuntimeError(
+            "CHROMA_URL is not set. "
+            "Add CHROMA_URL=https://<your-chroma-host> to MCP/.env."
         )
-    return chromadb.PersistentClient(path=_CHROMA_PERSIST_DIR)
+    return chromadb.HttpClient(
+        host=_CHROMA_URL,
+        headers={
+            "CF-Access-Client-Id":     _CF_CLIENT_ID,
+            "CF-Access-Client-Secret": _CF_CLIENT_SECRET,
+        },
+    )
 
 
 def _get_embedding_fn() -> Any:

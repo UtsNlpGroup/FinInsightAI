@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import {
   Send, TrendingUp, BarChart2, FileSearch, PieChart, Square,
+  TrendingDown, ShoppingCart,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -170,6 +171,22 @@ function makeActionCards(ticker: string, name: string) {
       description: 'Side-by-side metric comparison',
       prompt: `Compare revenue and EBITDA for ${ticker}, MSFT and GOOGL`,
     },
+    {
+      Icon: ShoppingCart,
+      iconBg: '#DBEAFE',
+      iconColor: '#2563EB',
+      title: `Buy ${ticker}`,
+      description: 'Place a paper buy order',
+      prompt: `Place a paper buy order for 1 share of ${ticker} at market price`,
+    },
+    {
+      Icon: TrendingDown,
+      iconBg: '#FEE2E2',
+      iconColor: '#DC2626',
+      title: `Sell ${ticker}`,
+      description: 'Place a paper sell order',
+      prompt: `Place a paper sell order for 1 share of ${ticker} at market price`,
+    },
   ];
 }
 
@@ -232,7 +249,7 @@ function WelcomeState({
         </span>
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-2xl">
         {cards.map(({ Icon, iconBg, iconColor, title, description, prompt }) => (
           <button
             key={title}
