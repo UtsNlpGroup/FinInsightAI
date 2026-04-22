@@ -554,7 +554,7 @@ export default function App() {
           {activePanel && !navCollapsed && (
             <div className="w-80 flex-1 overflow-y-auto overflow-x-hidden">
               {activePanel === 'dashboard' && <Dashboard currentAsset={currentAsset} />}
-              {activePanel === 'sentiment' && <Sentiment />}
+              {activePanel === 'sentiment' && <Sentiment ticker={currentAsset} />}
             </div>
           )}
         </div>
@@ -577,7 +577,7 @@ export default function App() {
 
           {/* Mobile: sentiment view */}
           <div className={`flex-1 overflow-y-auto ${mobileView === 'sentiment' ? 'flex md:hidden flex-col' : 'hidden'}`}>
-            <Sentiment />
+            <Sentiment ticker={currentAsset} />
           </div>
 
           {/* Mobile: history view */}

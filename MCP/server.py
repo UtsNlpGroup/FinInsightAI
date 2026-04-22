@@ -503,43 +503,23 @@ def place_order(
 # ---------------------------------------------------------------------------
 
 class VectorStoreInput(BaseModel):
-    operation: Literal["add", "query"] = Field(
-        description=(
-            "Operation to perform on the collection: "
-            "'add' to insert new documents, 'query' to semantic-search existing ones."
-        )
-    )
-    collection_name: str = Field(
+    collection_name: Literal["stream2_sentiment", "sec-filings"] = Field(
         default=_DEFAULT_COLLECTION,
-        description="Name of the ChromaDB collection to target.",
-    )
-
-    # --- add-specific fields ---
-    documents: list[str] | None = Field(
-        default=None,
-        description="[add only] List of document texts to store.",
-    )
-    ids: list[str] | None = Field(
-        default=None,
         description=(
-            "[add only] Unique IDs for each document. "
-            "Auto-generated as 'doc_0', 'doc_1', … when omitted."
+            "ChromaDB collection to query. Choose based on the question type:\n"
+            "• 'stream2_sentiment' – market sentiment, news headlines, earnings call summaries, "
+            "analyst commentary, and press releases.\n"
+            "• 'sec-filings' – SEC 10-K annual filings: business descriptions, risk factors, "
+            "MD&A sections, and audited financial statements."
         ),
     )
-    metadatas: list[dict[str, Any]] | None = Field(
-        default=None,
-        description="[add only] Optional metadata dict for each document (same length as documents).",
-    )
-
-    # --- query-specific fields ---
-    query_text: str | None = Field(
-        default=None,
-        description="[query only] Natural-language query to search for semantically similar documents.",
+    query_text: str = Field(
+        description="Natural-language query to search for semantically similar documents.",
     )
     ticker: str | None = Field(
         default=None,
         description=(
-            "[query only] Stock ticker symbol to filter results by (e.g. 'AAPL', 'TSLA'). "
+            "Stock ticker symbol to filter results by (e.g. 'AAPL', 'TSLA'). "
             "When provided, only documents whose metadata 'ticker' field matches this value are returned."
         ),
     )
@@ -547,19 +527,18 @@ class VectorStoreInput(BaseModel):
         default=5,
         ge=1,
         le=50,
-        description="[query only] Maximum number of results to return.",
+        description="Maximum number of results to return (default 5, max 50).",
     )
     where: dict[str, Any] | None = Field(
         default=None,
         description=(
-            "[query only] Optional metadata filter (ChromaDB where-clause syntax). "
+            "Optional metadata filter (ChromaDB where-clause syntax). "
             "If 'ticker' is also provided, the two filters are merged with $and."
         ),
     )
 
 
 class VectorStoreResult(BaseModel):
-    operation: str
     collection_name: str
     message: str
     data: list[dict[str, Any]] | None = None
@@ -568,90 +547,44 @@ class VectorStoreResult(BaseModel):
 @mcp.tool
 def vector_store(params: VectorStoreInput) -> VectorStoreResult:
     """
-    Interact with a ChromaDB vector store to manage and search financial documents.
+    Semantically search financial documents stored in ChromaDB.
 
-    Supports two operations:
-    • **add**   – Embed and persist one or more text documents into the specified collection,
-                  optionally attaching metadata (e.g. ticker, date, source).
-    • **query** – Run a semantic similarity search against stored documents and return
-                  the top-N most relevant results together with their metadata and
-                  distance scores.
+    Two collections are available — pick the one that matches the question:
+
+    • 'stream2_sentiment'  – Use for questions about market sentiment, recent news, earnings call
+                             summaries, analyst ratings, press releases, or short-term price drivers.
+                             Example queries: "latest news on AAPL", "analyst sentiment for TSLA",
+                             "Q3 earnings beat".
+
+    • 'sec-filings'        – Use for questions grounded in official SEC 10-K filings: business model,
+                             risk factors, MD&A narrative, audited revenue/expense breakdowns, or
+                             long-term strategic outlook.
+                             Example queries: "AAPL risk factors", "MSFT revenue recognition policy",
+                             "NVDA business description 10-K".
+
+    IMPORTANT: Only use 'stream2_sentiment' or 'sec-filings'. Never invent or guess a collection name.
+
+    Use `ticker` to scope the search to a specific company.
+    Use `n_results` to control how many documents are returned (default 5, max 50).
 
     Args:
-        params: A VectorStoreInput object specifying the operation and its parameters.
+        params: A VectorStoreInput object specifying the query and its parameters.
 
     Returns:
-        A VectorStoreResult with a status message and (for queries) the matching documents.
+        A VectorStoreResult with a status message and the matching documents with
+        their metadata and similarity scores.
     """
     logger.info(
-        "vector_store called | operation=%s | collection=%s | ticker=%s",
-        params.operation,
+        "vector_store called | collection=%s | query_text='%s' | ticker=%s | n_results=%d | where=%s",
         params.collection_name,
+        params.query_text,
         params.ticker or "—",
+        params.n_results,
+        params.where or "—",
     )
 
     client = _get_chroma_client()
     embed_fn = _get_embedding_fn()
-
-    # ---- ADD ---------------------------------------------------------------
-    if params.operation == "add":
-        collection = client.get_or_create_collection(
-            name=params.collection_name,
-            embedding_function=embed_fn,
-            metadata={"hnsw:space": "cosine"},
-        )
-
-        if not params.documents:
-            logger.warning("vector_store [add] | no documents provided")
-            return VectorStoreResult(
-                operation="add",
-                collection_name=params.collection_name,
-                message="No documents provided. Pass at least one document in the 'documents' field.",
-            )
-
-        doc_ids = params.ids or [f"doc_{i}" for i in range(len(params.documents))]
-        metadatas = params.metadatas or [{}] * len(params.documents)
-
-        logger.info(
-            "vector_store [add] | collection=%s | doc_count=%d | ids=%s",
-            params.collection_name,
-            len(params.documents),
-            doc_ids,
-        )
-
-        collection.add(
-            ids=doc_ids,
-            documents=params.documents,
-            metadatas=metadatas,
-        )
-
-        logger.info(
-            "vector_store [add] | success | collection=%s | added=%d",
-            params.collection_name,
-            len(params.documents),
-        )
-
-        return VectorStoreResult(
-            operation="add",
-            collection_name=params.collection_name,
-            message=(
-                f"Successfully added {len(params.documents)} document(s) "
-                f"to collection '{params.collection_name}'."
-            ),
-            data=[
-                {"id": did, "document_preview": doc[:120] + ("…" if len(doc) > 120 else "")}
-                for did, doc in zip(doc_ids, params.documents)
-            ],
-        )
-
-    # ---- QUERY -------------------------------------------------------------
-    if not params.query_text:
-        logger.warning("vector_store [query] | no query_text provided")
-        return VectorStoreResult(
-            operation="query",
-            collection_name=params.collection_name,
-            message="No query_text provided. Pass a search string in the 'query_text' field.",
-        )
 
     collection = client.get_collection(
         name=params.collection_name,
@@ -668,15 +601,6 @@ def vector_store(params: VectorStoreInput) -> VectorStoreResult:
         effective_where = ticker_filter
     else:
         effective_where = params.where
-
-    logger.info(
-        "vector_store [query] | collection=%s | query='%s' | ticker=%s | where=%s | n_results=%d",
-        params.collection_name,
-        params.query_text,
-        params.ticker or "—",
-        effective_where,
-        params.n_results,
-    )
 
     query_kwargs: dict[str, Any] = {
         "query_texts": [params.query_text],
@@ -705,14 +629,21 @@ def vector_store(params: VectorStoreInput) -> VectorStoreResult:
         )
 
     logger.info(
-        "vector_store [query] | results=%d | top_score=%s | ids=%s",
+        "vector_store results | count=%d | top_score=%s",
         len(hits),
         hits[0]["similarity_score"] if hits else "n/a",
-        [h["id"] for h in hits],
     )
+    for i, hit in enumerate(hits):
+        logger.info(
+            "  [%d] id=%s | score=%.4f | meta=%s | text='%s'",
+            i + 1,
+            hit["id"],
+            hit["similarity_score"],
+            hit["metadata"],
+            hit["document"][:200] + ("…" if len(hit["document"]) > 200 else ""),
+        )
 
     return VectorStoreResult(
-        operation="query",
         collection_name=params.collection_name,
         message=f"Found {len(hits)} result(s) for query: '{params.query_text}'.",
         data=hits,

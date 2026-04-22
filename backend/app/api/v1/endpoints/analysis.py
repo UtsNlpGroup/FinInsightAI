@@ -21,7 +21,13 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from app.core.dependencies import get_analysis_service
-from app.schemas.analysis import FilingRisksResponse, OverallOutlookResponse
+from app.schemas.analysis import (
+    AIThemesResponse,
+    FilingRisksResponse,
+    MarketNewsResponse,
+    OverallOutlookResponse,
+    SentimentDivergenceResponse,
+)
 from app.services.analysis_service import AnalysisService
 
 logger = logging.getLogger(__name__)
@@ -101,3 +107,80 @@ async def get_filing_risks(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to extract filing risks.",
         ) from exc
+
+
+# ── GET /ai-themes/{ticker} ───────────────────────────────────────────────────
+
+@router.get(
+    "/ai-themes/{ticker}",
+    response_model=AIThemesResponse,
+    summary="Extract recurring AI/market themes from recent news",
+    description=(
+        "Queries the stream2_sentiment collection and returns 5–8 recurring "
+        "themes or narratives found in recent coverage of the ticker "
+        "(e.g. 'Services Growth', 'AI Integration', 'Margin Pressure')."
+    ),
+)
+async def get_ai_themes(
+    ticker: str = Path(..., min_length=1, max_length=10, description="Stock ticker, e.g. AAPL."),
+    svc: AnalysisService = Depends(get_analysis_service),
+) -> AIThemesResponse:
+    logger.info("GET /analysis/ai-themes/%s", ticker)
+    try:
+        return await svc.get_ai_themes(ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unhandled error in /analysis/ai-themes/%s", ticker)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to extract AI themes.") from exc
+
+
+# ── GET /sentiment-divergence/{ticker} ────────────────────────────────────────
+
+@router.get(
+    "/sentiment-divergence/{ticker}",
+    response_model=SentimentDivergenceResponse,
+    summary="Get institutional vs social sentiment divergence",
+    description=(
+        "Queries the stream2_sentiment collection with a large result set and "
+        "returns a breakdown of dominant sentiment by source category "
+        "(Institutional Focus vs Social Sentiment), each with a percentage."
+    ),
+)
+async def get_sentiment_divergence(
+    ticker: str = Path(..., min_length=1, max_length=10, description="Stock ticker, e.g. AAPL."),
+    svc: AnalysisService = Depends(get_analysis_service),
+) -> SentimentDivergenceResponse:
+    logger.info("GET /analysis/sentiment-divergence/%s", ticker)
+    try:
+        return await svc.get_sentiment_divergence(ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unhandled error in /analysis/sentiment-divergence/%s", ticker)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to compute sentiment divergence.") from exc
+
+
+# ── GET /market-news/{ticker} ─────────────────────────────────────────────────
+
+@router.get(
+    "/market-news/{ticker}",
+    response_model=MarketNewsResponse,
+    summary="Get recent news items for the Market Sentiment feed",
+    description=(
+        "Queries the stream2_sentiment collection and returns up to 8 recent "
+        "news items with title, summary, sentiment, source, relative time, and URL."
+    ),
+)
+async def get_market_news(
+    ticker: str = Path(..., min_length=1, max_length=10, description="Stock ticker, e.g. AAPL."),
+    svc: AnalysisService = Depends(get_analysis_service),
+) -> MarketNewsResponse:
+    logger.info("GET /analysis/market-news/%s", ticker)
+    try:
+        return await svc.get_market_news(ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unhandled error in /analysis/market-news/%s", ticker)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to fetch market news.") from exc
