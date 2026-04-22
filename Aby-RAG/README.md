@@ -78,7 +78,7 @@ The system extracts insights by answering:
 * **HuggingFace Embeddings (`BAAI/bge-small-en`)**
 * **LLMs:**
 
-  * Ollama (e.g., `gpt-oss`, `qwen3:4b`)
+  * Ollama (e.g., `gpt-oss`, `mistral`)
   * OpenAI (`gpt-4o-mini`)
 
 ---
@@ -118,7 +118,7 @@ cd <repo>
 
 ---
 
-### 2. Install dependencies (yet to add)
+### 2. Install dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -171,7 +171,7 @@ results/
 
 ## ⚡ Performance Considerations
 
-* Use smaller local models (`qwen3:4b`) for faster testing
+* Use smaller local models (`mistral`, `gemma`) for faster testing
 * Use OpenAI for higher-quality outputs
 * Tune retrieval (`k`) and chunk size for better performance
 
@@ -199,7 +199,7 @@ to quickly extract insights from lengthy financial documents.
 
 ---
 
-## 👤 Author - Abhishek Chopda
+## 👤 Author
 
 Developed as part of an NLP project focused on applying LLMs to real-world financial analysis.
 

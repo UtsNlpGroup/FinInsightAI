@@ -10,7 +10,8 @@ from src.ingestion.loader import load_html
 from src.ingestion.parser import extract_sections
 from src.ingestion.chunker import create_documents
 # from src.rag.embedder import create_vectorstore
-from src.rag.embedder import get_or_create_vectorstore
+# from src.rag.embedder import get_or_create_vectorstore
+from src.rag.embedder import get_vectorstore
 from src.rag.retriever import retrieve_documents
 from src.rag.qa import generate_answer
 from src.rag.qa import generate_final_insight
@@ -104,7 +105,13 @@ def run_pipeline(file_path: str, company: str):
     # -----------------------------
     # STEP 6: Create Vector Store
     # -----------------------------
-    vectorstore = get_or_create_vectorstore(documents, company=company)
+    # vectorstore = get_or_create_vectorstore(documents, company=company)
+    
+    UPLOAD = False   # change to True only when adding new data
+    vectorstore = get_vectorstore(
+    documents=documents if UPLOAD else None,
+    collection_name="sec_filings"
+)
 
     # -----------------------------
     # 🔍 STEP 7: VERIFY VECTORSTORE
