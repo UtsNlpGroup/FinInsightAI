@@ -22,8 +22,8 @@ from src.utils.logger import save_results
 
 
 
-model = input("Enter model to use (ollama or openai or ollama2): ").strip().lower()
-MODEL_TYPE = model   # or "openai"
+# model = input("Enter model to use (ollama or openai or ollama2): ").strip().lower()
+MODEL_TYPE = "openai"   # or "openai"
 
 QUESTION_CONFIG = [
     {
