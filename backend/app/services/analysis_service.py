@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 _OUTLOOK_PROMPT = """You are a senior financial analyst.
 
 For the company with ticker {ticker}:
-1. Use the vector_store tool with collection_name="sec-filings", query_text="10-K highlights strategic initiatives financial performance {ticker}", n_results=5 to retrieve key filing content.
+1. Use the vector_store tool with collection_name="sec_filings", query_text="10-K highlights strategic initiatives financial performance {ticker}", n_results=5 to retrieve key filing content.
 2. Use get_company_financials to get current market data and analyst sentiment.
 
 Then write EXACTLY ONE sentence (maximum 45 words) that synthesises:
@@ -54,7 +54,7 @@ Return ONLY the single sentence. No preamble, no explanation, no line breaks."""
 _RISKS_PROMPT = """You are a senior financial analyst performing a risk assessment.
 
 For the company with ticker {ticker}:
-1. Use the vector_store tool with collection_name="sec-filings", query_text="risk factors challenges threats {ticker} 10-K", n_results=8 to retrieve risk-related content from the filing.
+1. Use the vector_store tool with collection_name="sec_filings", query_text="risk factors challenges threats {ticker} 10-K", n_results=8 to retrieve risk-related content from the filing.
 2. Use get_company_financials to enrich the picture with current market context if relevant.
 
 Extract the 5–8 most significant risk factors mentioned or implied. Return them as a JSON array with this EXACT structure — no other text, no markdown fences:

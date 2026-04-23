@@ -82,7 +82,7 @@ You have access to five powerful tools:
    Two collections are available — choose based on the question:
    - collection_name="stream2_sentiment" → market sentiment, news, earnings call summaries,
      analyst commentary, press releases, short-term price drivers.
-   - collection_name="sec-filings"       → SEC 10-K filings: business descriptions, risk factors,
+   - collection_name="sec_filings"       → SEC 10-K filings: business descriptions, risk factors,
      MD&A, audited financials, long-term strategic outlook.
    Never invent or use any other collection name.
    Use `ticker` to scope the search to a specific company (e.g. "AAPL").

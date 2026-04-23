@@ -503,13 +503,13 @@ def place_order(
 # ---------------------------------------------------------------------------
 
 class VectorStoreInput(BaseModel):
-    collection_name: Literal["stream2_sentiment", "sec-filings"] = Field(
+    collection_name: Literal["stream2_sentiment", "sec_filings"] = Field(
         default=_DEFAULT_COLLECTION,
         description=(
             "ChromaDB collection to query. Choose based on the question type:\n"
             "• 'stream2_sentiment' – market sentiment, news headlines, earnings call summaries, "
             "analyst commentary, and press releases.\n"
-            "• 'sec-filings' – SEC 10-K annual filings: business descriptions, risk factors, "
+            "• 'sec_filings' – SEC 10-K annual filings: business descriptions, risk factors, "
             "MD&A sections, and audited financial statements."
         ),
     )
@@ -556,13 +556,13 @@ def vector_store(params: VectorStoreInput) -> VectorStoreResult:
                              Example queries: "latest news on AAPL", "analyst sentiment for TSLA",
                              "Q3 earnings beat".
 
-    • 'sec-filings'        – Use for questions grounded in official SEC 10-K filings: business model,
+    • 'sec_filings'        – Use for questions grounded in official SEC 10-K filings: business model,
                              risk factors, MD&A narrative, audited revenue/expense breakdowns, or
                              long-term strategic outlook.
                              Example queries: "AAPL risk factors", "MSFT revenue recognition policy",
                              "NVDA business description 10-K".
 
-    IMPORTANT: Only use 'stream2_sentiment' or 'sec-filings'. Never invent or guess a collection name.
+    IMPORTANT: Only use 'stream2_sentiment' or 'sec_filings'. Never invent or guess a collection name.
 
     Use `ticker` to scope the search to a specific company.
     Use `n_results` to control how many documents are returned (default 5, max 50).
