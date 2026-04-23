@@ -1,5 +1,6 @@
 volumes:
   finsight-node-modules:
+  chroma-onnx-cache:
 
 services:
 
@@ -20,6 +21,8 @@ services:
     volumes:
       # Hot reload – mount source so watchfiles picks up changes
       - ./MCP/server.py:/app/server.py
+      # Shared Chroma ONNX model cache – prevents re-downloading on every restart
+      - chroma-onnx-cache:/root/.cache/chroma
     command: watchfiles --filter python "python server.py"
     ports:
       - "8080:8080"
@@ -58,6 +61,8 @@ services:
     volumes:
       # Hot reload – mount app source so uvicorn --reload picks up changes
       - ./backend/app:/app/app
+      # Shared Chroma ONNX model cache – prevents re-downloading on every restart
+      - chroma-onnx-cache:/root/.cache/chroma
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude '*.pyc' --reload-exclude '__pycache__' --reload-exclude '*__init__.py'
     ports:
       - "8001:8000"
