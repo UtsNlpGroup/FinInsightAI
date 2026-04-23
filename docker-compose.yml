@@ -49,6 +49,7 @@ services:
       - ./backend/.env
     environment:
       ENVIRONMENT: development
+      PYTHONDONTWRITEBYTECODE: "1"
       MCP_SERVER_URL: http://mcp-server:8080/mcp
       LLM_MODEL: ${LLM_MODEL:-openai:gpt-5.4-mini}
       LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.0}
