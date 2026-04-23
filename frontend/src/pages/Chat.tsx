@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import {
-  Send, TrendingUp, BarChart2, FileSearch, PieChart, Square,
+  Send, TrendingUp, BarChart2, FileSearch, Square,
   TrendingDown, ShoppingCart,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -9,6 +9,7 @@ import type { ChatMessage } from '../types';
 import type { ApiMessage } from '../services/chatApi';
 import { useChat } from '../hooks/useChat';
 import ChartBlock, { type ChartSpec } from '../components/ChartBlock';
+import NewsBlock, { type NewsItem } from '../components/NewsBlock';
 
 const MAX_CHARS = 3000;
 
@@ -103,25 +104,32 @@ function Markdown({ children }: { children: string }) {
   );
 }
 
-// ── Content parser (splits off ```chart blocks before markdown rendering) ─────
+// ── Content parser (splits off ```chart and ```news blocks before markdown rendering) ─────
 
 type TextSegment  = { kind: 'text';  content: string };
 type ChartSegment = { kind: 'chart'; spec: ChartSpec };
-type Segment = TextSegment | ChartSegment;
+type NewsSegment  = { kind: 'news';  items: NewsItem[] };
+type Segment = TextSegment | ChartSegment | NewsSegment;
 
 function parseSegments(raw: string): Segment[] {
-  const CHART_RE = /```chart\s*\n([\s\S]*?)\n```/g;
+  const BLOCK_RE = /```(chart|news)\s*\n([\s\S]*?)\n```/g;
   const segments: Segment[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  while ((match = CHART_RE.exec(raw)) !== null) {
+  while ((match = BLOCK_RE.exec(raw)) !== null) {
     if (match.index > lastIndex) {
       const text = raw.slice(lastIndex, match.index).trim();
       if (text) segments.push({ kind: 'text', content: text });
     }
+    const blockType = match[1] as 'chart' | 'news';
+    const body = match[2].trim();
     try {
-      segments.push({ kind: 'chart', spec: JSON.parse(match[1].trim()) as ChartSpec });
+      if (blockType === 'chart') {
+        segments.push({ kind: 'chart', spec: JSON.parse(body) as ChartSpec });
+      } else {
+        segments.push({ kind: 'news', items: JSON.parse(body) as NewsItem[] });
+      }
     } catch {
       segments.push({ kind: 'text', content: match[0] });
     }
@@ -164,12 +172,12 @@ function makeActionCards(ticker: string, name: string) {
       prompt: `What are ${name}'s main risk factors from their 10-K filing?`,
     },
     {
-      Icon: PieChart,
-      iconBg: '#FCE7F3',
-      iconColor: '#DB2777',
-      title: 'Compare',
-      description: 'Side-by-side metric comparison',
-      prompt: `Compare revenue and EBITDA for ${ticker}, MSFT and GOOGL`,
+      Icon: TrendingUp,
+      iconBg: '#ECFDF5',
+      iconColor: '#059669',
+      title: 'Latest News',
+      description: `Recent news & sentiment for ${ticker}`,
+      prompt: `Show me the latest news and market sentiment for ${ticker}`,
     },
     {
       Icon: ShoppingCart,
@@ -348,6 +356,8 @@ function AssistantBubble({ msg, isStreaming, onSuggestionClick }: AssistantBubbl
               {parseSegments(msg.content).map((seg, i) =>
                 seg.kind === 'chart' ? (
                   <ChartBlock key={i} spec={seg.spec} />
+                ) : seg.kind === 'news' ? (
+                  <NewsBlock key={i} items={seg.items} />
                 ) : (
                   <Markdown key={i}>{seg.content}</Markdown>
                 )

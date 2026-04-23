@@ -12,6 +12,7 @@ FastMCP server exposing five tools:
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Any, Literal
 
@@ -26,6 +27,9 @@ from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s – %(message)s")
+logger = logging.getLogger("finsightai.mcp")
 
 # ---------------------------------------------------------------------------
 # Server initialisation
@@ -499,53 +503,42 @@ def place_order(
 # ---------------------------------------------------------------------------
 
 class VectorStoreInput(BaseModel):
-    operation: Literal["add", "query"] = Field(
-        description=(
-            "Operation to perform on the collection: "
-            "'add' to insert new documents, 'query' to semantic-search existing ones."
-        )
-    )
-    collection_name: str = Field(
+    collection_name: Literal["stream2_sentiment", "sec_filings"] = Field(
         default=_DEFAULT_COLLECTION,
-        description="Name of the ChromaDB collection to target.",
-    )
-
-    # --- add-specific fields ---
-    documents: list[str] | None = Field(
-        default=None,
-        description="[add only] List of document texts to store.",
-    )
-    ids: list[str] | None = Field(
-        default=None,
         description=(
-            "[add only] Unique IDs for each document. "
-            "Auto-generated as 'doc_0', 'doc_1', … when omitted."
+            "ChromaDB collection to query. Choose based on the question type:\n"
+            "• 'stream2_sentiment' – market sentiment, news headlines, earnings call summaries, "
+            "analyst commentary, and press releases.\n"
+            "• 'sec_filings' – SEC 10-K annual filings: business descriptions, risk factors, "
+            "MD&A sections, and audited financial statements."
         ),
     )
-    metadatas: list[dict[str, Any]] | None = Field(
-        default=None,
-        description="[add only] Optional metadata dict for each document (same length as documents).",
+    query_text: str = Field(
+        description="Natural-language query to search for semantically similar documents.",
     )
-
-    # --- query-specific fields ---
-    query_text: str | None = Field(
+    ticker: str | None = Field(
         default=None,
-        description="[query only] Natural-language query to search for semantically similar documents.",
+        description=(
+            "Stock ticker symbol to filter results by (e.g. 'AAPL', 'TSLA'). "
+            "When provided, only documents whose metadata 'ticker' field matches this value are returned."
+        ),
     )
     n_results: int = Field(
         default=5,
         ge=1,
         le=50,
-        description="[query only] Maximum number of results to return.",
+        description="Maximum number of results to return (default 5, max 50).",
     )
     where: dict[str, Any] | None = Field(
         default=None,
-        description="[query only] Optional metadata filter (ChromaDB where-clause syntax).",
+        description=(
+            "Optional metadata filter (ChromaDB where-clause syntax). "
+            "If 'ticker' is also provided, the two filters are merged with $and."
+        ),
     )
 
 
 class VectorStoreResult(BaseModel):
-    operation: str
     collection_name: str
     message: str
     data: list[dict[str, Any]] | None = None
@@ -554,76 +547,68 @@ class VectorStoreResult(BaseModel):
 @mcp.tool
 def vector_store(params: VectorStoreInput) -> VectorStoreResult:
     """
-    Interact with a ChromaDB vector store to manage and search financial documents.
+    Semantically search financial documents stored in ChromaDB.
 
-    Supports two operations:
-    • **add**   – Embed and persist one or more text documents into the specified collection,
-                  optionally attaching metadata (e.g. ticker, date, source).
-    • **query** – Run a semantic similarity search against stored documents and return
-                  the top-N most relevant results together with their metadata and
-                  distance scores.
+    Two collections are available — pick the one that matches the question:
+
+    • 'stream2_sentiment'  – Use for questions about market sentiment, recent news, earnings call
+                             summaries, analyst ratings, press releases, or short-term price drivers.
+                             Example queries: "latest news on AAPL", "analyst sentiment for TSLA",
+                             "Q3 earnings beat".
+
+    • 'sec_filings'        – Use for questions grounded in official SEC 10-K filings: business model,
+                             risk factors, MD&A narrative, audited revenue/expense breakdowns, or
+                             long-term strategic outlook.
+                             Example queries: "AAPL risk factors", "MSFT revenue recognition policy",
+                             "NVDA business description 10-K".
+
+    IMPORTANT: Only use 'stream2_sentiment' or 'sec_filings'. Never invent or guess a collection name.
+
+    Use `ticker` to scope the search to a specific company.
+    Use `n_results` to control how many documents are returned (default 5, max 50).
 
     Args:
-        params: A VectorStoreInput object specifying the operation and its parameters.
+        params: A VectorStoreInput object specifying the query and its parameters.
 
     Returns:
-        A VectorStoreResult with a status message and (for queries) the matching documents.
+        A VectorStoreResult with a status message and the matching documents with
+        their metadata and similarity scores.
     """
+    logger.info(
+        "vector_store called | collection=%s | query_text='%s' | ticker=%s | n_results=%d | where=%s",
+        params.collection_name,
+        params.query_text,
+        params.ticker or "—",
+        params.n_results,
+        params.where or "—",
+    )
+
     client = _get_chroma_client()
     embed_fn = _get_embedding_fn()
 
-    collection = client.get_or_create_collection(
+    collection = client.get_collection(
         name=params.collection_name,
         embedding_function=embed_fn,
-        metadata={"hnsw:space": "cosine"},
     )
 
-    # ---- ADD ---------------------------------------------------------------
-    if params.operation == "add":
-        if not params.documents:
-            return VectorStoreResult(
-                operation="add",
-                collection_name=params.collection_name,
-                message="No documents provided. Pass at least one document in the 'documents' field.",
-            )
-
-        doc_ids = params.ids or [f"doc_{i}" for i in range(len(params.documents))]
-        metadatas = params.metadatas or [{}] * len(params.documents)
-
-        collection.add(
-            ids=doc_ids,
-            documents=params.documents,
-            metadatas=metadatas,
-        )
-
-        return VectorStoreResult(
-            operation="add",
-            collection_name=params.collection_name,
-            message=(
-                f"Successfully added {len(params.documents)} document(s) "
-                f"to collection '{params.collection_name}'."
-            ),
-            data=[
-                {"id": did, "document_preview": doc[:120] + ("…" if len(doc) > 120 else "")}
-                for did, doc in zip(doc_ids, params.documents)
-            ],
-        )
-
-    # ---- QUERY -------------------------------------------------------------
-    if not params.query_text:
-        return VectorStoreResult(
-            operation="query",
-            collection_name=params.collection_name,
-            message="No query_text provided. Pass a search string in the 'query_text' field.",
-        )
+    # Build the where-clause: ticker filter + any extra where clause
+    ticker_filter: dict[str, Any] | None = (
+        {"ticker": params.ticker.upper()} if params.ticker else None
+    )
+    if ticker_filter and params.where:
+        effective_where: dict[str, Any] | None = {"$and": [ticker_filter, params.where]}
+    elif ticker_filter:
+        effective_where = ticker_filter
+    else:
+        effective_where = params.where
 
     query_kwargs: dict[str, Any] = {
         "query_texts": [params.query_text],
         "n_results": min(params.n_results, collection.count() or params.n_results),
         "include": ["documents", "metadatas", "distances"],
     }
-    if params.where:
-        query_kwargs["where"] = params.where
+    if effective_where:
+        query_kwargs["where"] = effective_where
 
     results = collection.query(**query_kwargs)
 
@@ -643,8 +628,22 @@ def vector_store(params: VectorStoreInput) -> VectorStoreResult:
             }
         )
 
+    logger.info(
+        "vector_store results | count=%d | top_score=%s",
+        len(hits),
+        hits[0]["similarity_score"] if hits else "n/a",
+    )
+    for i, hit in enumerate(hits):
+        logger.info(
+            "  [%d] id=%s | score=%.4f | meta=%s | text='%s'",
+            i + 1,
+            hit["id"],
+            hit["similarity_score"],
+            hit["metadata"],
+            hit["document"][:200] + ("…" if len(hit["document"]) > 200 else ""),
+        )
+
     return VectorStoreResult(
-        operation="query",
         collection_name=params.collection_name,
         message=f"Found {len(hits)} result(s) for query: '{params.query_text}'.",
         data=hits,

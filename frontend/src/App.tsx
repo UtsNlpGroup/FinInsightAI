@@ -234,24 +234,26 @@ function ModelPicker({
       {/* Trigger button */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all text-left"
+        className="w-full flex items-start gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all text-left"
         style={{
           background: open ? '#EFF6FF' : '#F9FAFB',
           borderColor: open ? '#BFDBFE' : '#E5E7EB',
           color: '#111827',
         }}
       >
-        <Cpu size={13} strokeWidth={2} style={{ color: '#6366F1', flexShrink: 0 }} />
-        <span className="flex-1 text-xs font-medium truncate">{current?.label ?? '—'}</span>
+        <Cpu size={13} strokeWidth={2} className="mt-0.5" style={{ color: '#6366F1', flexShrink: 0 }} />
+        <span className="flex-1 min-w-0 text-xs font-medium whitespace-normal break-words leading-snug">
+          {current?.label ?? '—'}
+        </span>
         {isDefault && (
           <span
-            className="text-[9px] font-semibold px-1.5 py-0.5 rounded shrink-0"
+            className="text-[9px] font-semibold px-1.5 py-0.5 rounded shrink-0 mt-0.5"
             style={{ background: '#EEF2FF', color: '#4F46E5' }}
           >
             default
           </span>
         )}
-        <ChevronDown size={11} strokeWidth={2.5} style={{ color: '#9CA3AF', flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }} />
+        <ChevronDown size={11} strokeWidth={2.5} className="mt-0.5" style={{ color: '#9CA3AF', flexShrink: 0, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }} />
       </button>
 
       {/* Dropdown */}
@@ -271,22 +273,25 @@ function ModelPicker({
               <button
                 key={m.id}
                 onMouseDown={() => { onChange(m.id); setOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left border-0 cursor-pointer transition-colors"
+                className="w-full flex items-start gap-2.5 px-3 py-2 text-left border-0 cursor-pointer transition-colors"
                 style={{ background: active ? '#EFF6FF' : 'transparent' }}
                 onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = '#F9FAFB'; }}
                 onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = active ? '#EFF6FF' : 'transparent'; }}
               >
-                <Cpu size={12} strokeWidth={2} style={{ color: active ? '#2563EB' : '#9CA3AF', flexShrink: 0 }} />
-                <span className="flex-1 text-xs font-medium truncate" style={{ color: active ? '#2563EB' : '#374151' }}>
+                <Cpu size={12} strokeWidth={2} className="mt-0.5" style={{ color: active ? '#2563EB' : '#9CA3AF', flexShrink: 0 }} />
+                <span
+                  className="flex-1 min-w-0 text-xs font-medium whitespace-normal break-words leading-snug"
+                  style={{ color: active ? '#2563EB' : '#374151' }}
+                >
                   {m.label}
                 </span>
                 {m.id === defaultModel && (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded shrink-0" style={{ background: '#EEF2FF', color: '#4F46E5' }}>
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded shrink-0 mt-0.5" style={{ background: '#EEF2FF', color: '#4F46E5' }}>
                     default
                   </span>
                 )}
                 {active && (
-                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: '#2563EB' }} />
+                  <div className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ background: '#2563EB' }} />
                 )}
               </button>
             );
@@ -483,7 +488,7 @@ export default function App() {
         <aside
           className="hidden md:flex flex-col shrink-0 transition-all duration-200 overflow-hidden"
           style={{
-            width: navCollapsed ? 56 : 200,
+            width: navCollapsed ? 56 : 248,
             background: '#FFFFFF',
             borderRight: '1px solid #E5E7EB',
           }}
@@ -516,13 +521,17 @@ export default function App() {
                   key={key}
                   onClick={() => handleTogglePanel(key)}
                   title={navCollapsed ? label : undefined}
-                  className={`flex items-center rounded-lg border-0 cursor-pointer transition-all text-sm font-medium ${navCollapsed ? 'justify-center px-0 py-2.5 w-10 mx-auto' : 'gap-2.5 px-3 py-2 w-full'}`}
+                  className={`flex ${navCollapsed ? 'items-center justify-center' : 'items-start'} rounded-lg border-0 cursor-pointer transition-all text-sm font-medium ${navCollapsed ? 'px-0 py-2.5 w-10 mx-auto' : 'gap-2.5 px-3 py-2 w-full'}`}
                   style={{ background: active ? '#EFF6FF' : 'transparent', color: active ? '#2563EB' : '#374151' }}
                   onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = '#F9FAFB'; }}
                   onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
                 >
                   <Icon size={17} strokeWidth={active ? 2.5 : 2} style={{ color: active ? '#2563EB' : '#6B7280', flexShrink: 0 }} />
-                  {!navCollapsed && <span className="truncate">{label}</span>}
+                  {!navCollapsed && (
+                    <span className="min-w-0 flex-1 text-left leading-snug whitespace-normal break-words">
+                      {label}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -547,14 +556,14 @@ export default function App() {
         <div
           className="hidden md:flex flex-col bg-white overflow-hidden transition-all duration-200 shrink-0"
           style={{
-            width: activePanel && !navCollapsed ? 320 : 0,
+            width: activePanel && !navCollapsed ? 368 : 0,
             borderRight: activePanel && !navCollapsed ? '1px solid #E5E7EB' : 'none',
           }}
         >
           {activePanel && !navCollapsed && (
-            <div className="w-80 flex-1 overflow-y-auto overflow-x-hidden">
+            <div className="w-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
               {activePanel === 'dashboard' && <Dashboard currentAsset={currentAsset} />}
-              {activePanel === 'sentiment' && <Sentiment />}
+              {activePanel === 'sentiment' && <Sentiment ticker={currentAsset} />}
             </div>
           )}
         </div>
@@ -577,7 +586,7 @@ export default function App() {
 
           {/* Mobile: sentiment view */}
           <div className={`flex-1 overflow-y-auto ${mobileView === 'sentiment' ? 'flex md:hidden flex-col' : 'hidden'}`}>
-            <Sentiment />
+            <Sentiment ticker={currentAsset} />
           </div>
 
           {/* Mobile: history view */}
