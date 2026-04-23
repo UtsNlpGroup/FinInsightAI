@@ -3,7 +3,6 @@ import type { DisclosureCard } from '../types';
 import { useStockPrice } from '../hooks/useStockPrice';
 import { useAiOutlook } from '../hooks/useAiOutlook';
 import { useDisclosureInsights } from '../hooks/useDisclosureInsights';
-import { ToolTraceStrip } from '../components/ToolTraceStrip';
 import type { StockQuote } from '../hooks/useStockPrice';
 import { TrendingUp, TrendingDown, Sparkles } from 'lucide-react';
 
@@ -115,7 +114,6 @@ function AiOutlookCard({ ticker }: { ticker: string }) {
           )}
           {!loading && !error && data?.outlook && (
             <>
-              <ToolTraceStrip traces={data.toolCalls} className="mb-2 justify-start" />
               <p className="text-[11px] text-blue-800/80 italic leading-relaxed">
                 &ldquo;{data.outlook}&rdquo;
               </p>
@@ -164,11 +162,12 @@ export default function RefinedDashboard({ currentAsset = 'AAPL' }: { currentAss
     { id: 'overview',  label: 'Overview' },
     { id: 'risks',     label: 'Risks'    },
     { id: 'growth',    label: 'Growth'   },
-    { id: 'capex',     label: 'Capex'    },
   ], []);
 
-  const { cards, toolCalls: insightToolCalls, loading: insightsLoading, error: insightsError } =
-    useDisclosureInsights(currentAsset, activeTab);
+  const { cards, loading: insightsLoading, error: insightsError } = useDisclosureInsights(
+    currentAsset,
+    activeTab,
+  );
 
   return (
     <div className="flex flex-col h-full antialiased text-slate-900">
@@ -225,9 +224,6 @@ export default function RefinedDashboard({ currentAsset = 'AAPL' }: { currentAss
               <p className="text-[11px] text-red-700/90">
                 Could not load insights ({insightsError}).
               </p>
-            )}
-            {!insightsLoading && !insightsError && insightToolCalls.length > 0 && (
-              <ToolTraceStrip traces={insightToolCalls} className="justify-start mb-1" />
             )}
             {insightsLoading && cards.length === 0 && !insightsError && (
               <div className="space-y-3">

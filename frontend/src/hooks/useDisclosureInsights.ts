@@ -1,16 +1,15 @@
 /**
- * Loads 10-K insight cards for the Executive Dashboard (risks, growth, capex).
+ * Loads 10-K insight cards for the Executive Dashboard (risks, growth).
  */
 
 import { useState, useEffect, useMemo } from 'react';
 import type { DisclosureCard } from '../types';
-import type { ToolCallTraceItem } from '../lib/toolCalls';
 import {
   fetchDisclosureInsights,
   type DisclosureInsightSegment,
 } from '../services/analysisApi';
 
-export type DashboardInsightTab = 'risks' | 'growth' | 'capex';
+export type DashboardInsightTab = 'risks' | 'growth';
 
 function segmentForTab(tab: DashboardInsightTab): DisclosureInsightSegment {
   switch (tab) {
@@ -18,8 +17,6 @@ function segmentForTab(tab: DashboardInsightTab): DisclosureInsightSegment {
       return 'risks';
     case 'growth':
       return 'growth-strategies';
-    case 'capex':
-      return 'capex';
     default:
       return 'risks';
   }
@@ -27,21 +24,19 @@ function segmentForTab(tab: DashboardInsightTab): DisclosureInsightSegment {
 
 export function useDisclosureInsights(ticker: string, activeTab: string) {
   const segment = useMemo(() => {
-    if (activeTab === 'risks' || activeTab === 'growth' || activeTab === 'capex') {
+    if (activeTab === 'risks' || activeTab === 'growth') {
       return segmentForTab(activeTab as DashboardInsightTab);
     }
     return null;
   }, [activeTab]);
 
   const [cards, setCards] = useState<DisclosureCard[]>([]);
-  const [toolCalls, setToolCalls] = useState<ToolCallTraceItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!ticker || !segment) {
       setCards([]);
-      setToolCalls([]);
       setError(null);
       setLoading(false);
       return;
@@ -53,17 +48,12 @@ export function useDisclosureInsights(ticker: string, activeTab: string) {
       setLoading(true);
       setError(null);
       setCards([]);
-      setToolCalls([]);
       try {
         const data = await fetchDisclosureInsights(ticker, segment);
-        if (!cancelled) {
-          setCards(data.cards);
-          setToolCalls(data.toolCalls);
-        }
+        if (!cancelled) setCards(data);
       } catch (e) {
         if (!cancelled) {
           setCards([]);
-          setToolCalls([]);
           setError((e as Error).message);
         }
       } finally {
@@ -77,5 +67,5 @@ export function useDisclosureInsights(ticker: string, activeTab: string) {
     };
   }, [ticker, segment]);
 
-  return { cards, toolCalls, loading, error };
+  return { cards, loading, error };
 }

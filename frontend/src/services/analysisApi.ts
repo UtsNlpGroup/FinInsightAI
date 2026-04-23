@@ -5,15 +5,12 @@
  *   /outlook/{ticker}              → 10-K + market synthesis (AI Overall Outlook card)
  *   /risks/{ticker}                → risk insight cards (10-K)
  *   /growth-strategies/{ticker}    → growth & strategy cards
- *   /capex/{ticker}                → CapEx / investment cards
  *   /ai-themes/{ticker}           → string[] of recurring themes
  *   /sentiment-divergence/{ticker} → institutional vs social breakdown
  *   /market-news/{ticker}          → recent news items for the sentiment feed
  */
 
 import type { DisclosureCard } from '../types';
-import type { ToolCallTraceItem } from '../lib/toolCalls';
-import { normalizeToolCalls } from '../lib/toolCalls';
 
 const BASE = '/api/v1/analysis';
 
@@ -38,15 +35,9 @@ export interface OverallOutlookPayload {
   ticker: string;
   outlook: string;
   tags: string[];
-  toolCalls: ToolCallTraceItem[];
 }
 
-export interface DisclosureInsightsPayload {
-  cards: DisclosureCard[];
-  toolCalls: ToolCallTraceItem[];
-}
-
-export type DisclosureInsightSegment = 'risks' | 'growth-strategies' | 'capex';
+export type DisclosureInsightSegment = 'risks' | 'growth-strategies';
 
 const IMPACT_LEVELS = new Set<DisclosureCard['impactLevel']>([
   'high', 'medium', 'low', 'positive_high', 'positive_medium',
@@ -74,19 +65,16 @@ function apiCardToDisclosureCard(raw: Record<string, unknown>, index: number): D
 export async function fetchDisclosureInsights(
   ticker: string,
   segment: DisclosureInsightSegment,
-): Promise<DisclosureInsightsPayload> {
+): Promise<DisclosureCard[]> {
   const path =
     segment === 'growth-strategies' ? 'growth-strategies' : segment;
   const res = await fetch(`${BASE}/${path}/${encodeURIComponent(ticker)}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   const cards = Array.isArray(data.cards) ? data.cards : [];
-  return {
-    cards: cards.map((c: unknown, i: number) =>
-      apiCardToDisclosureCard(c as Record<string, unknown>, i),
-    ),
-    toolCalls: normalizeToolCalls(data.tool_calls),
-  };
+  return cards.map((c: unknown, i: number) =>
+    apiCardToDisclosureCard(c as Record<string, unknown>, i),
+  );
 }
 
 export async function fetchOverallOutlook(ticker: string): Promise<OverallOutlookPayload> {
@@ -97,7 +85,6 @@ export async function fetchOverallOutlook(ticker: string): Promise<OverallOutloo
     ticker: String(data.ticker ?? ticker).toUpperCase(),
     outlook: String(data.outlook ?? ''),
     tags: Array.isArray(data.tags) ? data.tags.map((t: unknown) => String(t)) : [],
-    toolCalls: normalizeToolCalls(data.tool_calls),
   };
 }
 
