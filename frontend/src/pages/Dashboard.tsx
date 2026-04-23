@@ -1,11 +1,9 @@
 import { useState, useMemo } from 'react';
 import type { DisclosureCard } from '../types';
-import {
-  AI_OUTLOOK,
-  DISCLOSURE_KEY_RISKS, DISCLOSURE_GROWTH_DRIVERS,
-  DISCLOSURE_STRATEGIC_FOCUS, DISCLOSURE_FINANCIAL_TRENDS,
-} from '../data/mockData';
 import { useStockPrice } from '../hooks/useStockPrice';
+import { useAiOutlook } from '../hooks/useAiOutlook';
+import { useDisclosureInsights } from '../hooks/useDisclosureInsights';
+import { ToolTraceStrip } from '../components/ToolTraceStrip';
 import type { StockQuote } from '../hooks/useStockPrice';
 import { TrendingUp, TrendingDown, Sparkles } from 'lucide-react';
 
@@ -93,7 +91,9 @@ function PriceBlock({ quote, loading }: { quote: StockQuote | null; loading: boo
 }
 
 // ── AI Outlook card (used only inside Overview tab) ───────────────────────────
-function AiOutlookCard() {
+function AiOutlookCard({ ticker }: { ticker: string }) {
+  const { title, data, loading, error } = useAiOutlook(ticker);
+
   return (
     <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3.5">
       <div className="flex items-start gap-2.5">
@@ -101,17 +101,35 @@ function AiOutlookCard() {
           <Sparkles size={13} color="#fff" strokeWidth={2} />
         </div>
         <div className="min-w-0">
-          <p className="text-xs font-bold text-blue-900 mb-1">{AI_OUTLOOK.title}</p>
-          <p className="text-[11px] text-blue-800/80 italic leading-relaxed">
-            "{AI_OUTLOOK.quote}"
-          </p>
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {AI_OUTLOOK.tags.map(t => (
-              <span key={t} className="text-[9px] font-bold bg-white/90 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100 uppercase">
-                {t}
-              </span>
-            ))}
-          </div>
+          <p className="text-xs font-bold text-blue-900 mb-1">{title}</p>
+          {loading && !data && (
+            <div className="space-y-2 animate-pulse">
+              <div className="h-3 w-full bg-blue-100/80 rounded" />
+              <div className="h-3 w-4/5 bg-blue-100/80 rounded" />
+            </div>
+          )}
+          {error && (
+            <p className="text-[11px] text-red-700/90 leading-relaxed">
+              Could not load outlook ({error}). Check that the backend and MCP are running.
+            </p>
+          )}
+          {!loading && !error && data?.outlook && (
+            <>
+              <ToolTraceStrip traces={data.toolCalls} className="mb-2 justify-start" />
+              <p className="text-[11px] text-blue-800/80 italic leading-relaxed">
+                &ldquo;{data.outlook}&rdquo;
+              </p>
+              {data.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {data.tags.map(t => (
+                    <span key={t} className="text-[9px] font-bold bg-white/90 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100 uppercase">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -124,6 +142,7 @@ const Badge = ({ level, label }: { level: string; label: string }) => {
     high:          'bg-red-50 text-red-700 border-red-100',
     medium:        'bg-amber-50 text-amber-700 border-amber-100',
     positive_high: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+    positive_medium: 'bg-cyan-50 text-cyan-800 border-cyan-100',
     low:           'bg-slate-50 text-slate-600 border-slate-100',
   };
   return (
@@ -145,16 +164,11 @@ export default function RefinedDashboard({ currentAsset = 'AAPL' }: { currentAss
     { id: 'overview',  label: 'Overview' },
     { id: 'risks',     label: 'Risks'    },
     { id: 'growth',    label: 'Growth'   },
-    { id: 'strategic', label: 'Strategy' },
-    { id: 'trends',    label: 'Trends'   },
+    { id: 'capex',     label: 'Capex'    },
   ], []);
 
-  const tabData: Record<string, DisclosureCard[]> = useMemo(() => ({
-    risks:     DISCLOSURE_KEY_RISKS,
-    growth:    DISCLOSURE_GROWTH_DRIVERS,
-    strategic: DISCLOSURE_STRATEGIC_FOCUS,
-    trends:    DISCLOSURE_FINANCIAL_TRENDS,
-  }), []);
+  const { cards, toolCalls: insightToolCalls, loading: insightsLoading, error: insightsError } =
+    useDisclosureInsights(currentAsset, activeTab);
 
   return (
     <div className="flex flex-col h-full antialiased text-slate-900">
@@ -200,23 +214,43 @@ export default function RefinedDashboard({ currentAsset = 'AAPL' }: { currentAss
         {activeTab === 'overview' && (
           <div className="space-y-3">
             <PriceBlock quote={quote} loading={loading} />
-            <AiOutlookCard />
+            <AiOutlookCard ticker={currentAsset} />
           </div>
         )}
 
-        {/* Other tabs: disclosure cards */}
+        {/* Other tabs: disclosure cards from /api/v1/analysis */}
         {activeTab !== 'overview' && (
           <div className="space-y-3">
-            {(tabData[activeTab] ?? []).map((card: DisclosureCard) => (
+            {insightsError && (
+              <p className="text-[11px] text-red-700/90">
+                Could not load insights ({insightsError}).
+              </p>
+            )}
+            {!insightsLoading && !insightsError && insightToolCalls.length > 0 && (
+              <ToolTraceStrip traces={insightToolCalls} className="justify-start mb-1" />
+            )}
+            {insightsLoading && cards.length === 0 && !insightsError && (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="rounded-xl border border-slate-100 bg-slate-50 p-3.5 animate-pulse space-y-2">
+                    <div className="h-3 w-[75%] bg-slate-200 rounded" />
+                    <div className="h-3 w-full bg-slate-200 rounded" />
+                  </div>
+                ))}
+              </div>
+            )}
+            {!insightsLoading && !insightsError && cards.length === 0 && (
+              <p className="text-[11px] text-slate-500">No insight cards returned for this ticker yet.</p>
+            )}
+            {cards.map((card: DisclosureCard, idx: number) => (
               <div
-                key={card.title}
+                key={`${card.title}-${idx}`}
                 className="rounded-xl border border-slate-200 bg-white hover:border-indigo-200 transition-all duration-300 group overflow-hidden cursor-default"
                 style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 12px rgba(99,102,241,0.10)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)'; }}
               >
                 <div className="p-3.5">
-                  {/* Header row — always visible */}
                   <div className="flex items-start gap-2.5 mb-1.5">
                     <div className="shrink-0 w-7 h-7 flex items-center justify-center bg-slate-50 group-hover:bg-indigo-50 rounded-lg transition-colors text-base leading-none">
                       {card.icon}
@@ -228,14 +262,12 @@ export default function RefinedDashboard({ currentAsset = 'AAPL' }: { currentAss
                           {card.pageRef}
                         </span>
                       </div>
-                      {/* Badge always visible below title */}
                       <div className="mt-1">
                         <Badge level={card.impactLevel} label={card.impact} />
                       </div>
                     </div>
                   </div>
 
-                  {/* Description — clipped by default, fully shown on hover */}
                   <div className="overflow-hidden transition-all duration-300 ease-in-out max-h-[2.4rem] group-hover:max-h-40">
                     <p className="text-[11px] text-slate-500 group-hover:text-slate-700 leading-relaxed transition-colors duration-200 pt-0.5">
                       {card.description}

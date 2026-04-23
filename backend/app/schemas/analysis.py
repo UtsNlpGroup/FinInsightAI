@@ -7,7 +7,7 @@ directly from 10-K filing data retrieved via the MCP vector-store tool.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.agent import ToolCallTrace
 
@@ -23,6 +23,10 @@ class OverallOutlookResponse(BaseModel):
             "One concise sentence synthesising the company's 10-K highlights "
             "with external market sentiment and key risks."
         )
+    )
+    tags: list[str] = Field(
+        default_factory=list,
+        description="Short theme labels (e.g. for UI chips) derived from the synthesis.",
     )
     tool_calls: list[ToolCallTrace] = Field(default_factory=list)
 
@@ -51,6 +55,54 @@ class FilingRisksResponse(BaseModel):
         default_factory=list,
         description="Ordered list of key risk factors found in the 10-K.",
     )
+    tool_calls: list[ToolCallTrace] = Field(default_factory=list)
+
+
+# ── Disclosure insight cards (dashboard / 10-K tabs) ──────────────────────────
+
+_IMPACT_LEVELS = frozenset({"high", "medium", "low", "positive_high", "positive_medium"})
+
+
+class DisclosureInsightCard(BaseModel):
+    """One card for risks, growth, or capex insight lists."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    title: str = Field(description="Short card title.")
+    page_ref: str = Field(
+        default="10-K",
+        validation_alias=AliasChoices("page_ref", "pageRef"),
+        description="Filing section reference if known.",
+    )
+    description: str = Field(description="One-to-two sentence summary.")
+    impact: str = Field(description="Badge label, e.g. HIGH IMPACT.")
+    impact_level: str = Field(
+        default="medium",
+        validation_alias=AliasChoices("impact_level", "impactLevel"),
+        description="One of: high, medium, low, positive_high, positive_medium.",
+    )
+    icon: str = Field(default="📄", description="Single emoji.")
+
+    @field_validator("impact_level", mode="before")
+    @classmethod
+    def normalize_impact_level(cls, v: object) -> str:
+        if v is None:
+            return "medium"
+        s = str(v).lower().replace("-", "_").strip()
+        if s in _IMPACT_LEVELS:
+            return s
+        if "positive" in s and "high" in s:
+            return "positive_high"
+        if "positive" in s:
+            return "positive_medium"
+        return "medium"
+
+
+class DisclosureInsightsResponse(BaseModel):
+    """Returned by GET /analysis/risks|growth-strategies|capex/{ticker}."""
+
+    ticker: str = Field(description="Ticker symbol (upper-cased).")
+    cards: list[DisclosureInsightCard] = Field(default_factory=list)
     tool_calls: list[ToolCallTrace] = Field(default_factory=list)
 
 

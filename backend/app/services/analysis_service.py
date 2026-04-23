@@ -21,6 +21,8 @@ from uuid import uuid4
 from app.schemas.agent import ChatRequest
 from app.schemas.analysis import (
     AIThemesResponse,
+    DisclosureInsightCard,
+    DisclosureInsightsResponse,
     FilingRisk,
     FilingRisksResponse,
     MarketNewsItem,
@@ -42,14 +44,18 @@ For the company with ticker {ticker}:
 1. Use the vector_store tool with collection_name="sec_filings", query_text="10-K highlights strategic initiatives financial performance {ticker}", n_results=5 to retrieve key filing content.
 2. Use get_company_financials to get current market data and analyst sentiment.
 
-Then write EXACTLY ONE sentence (maximum 45 words) that synthesises:
+Then produce EXACTLY ONE sentence (maximum 45 words) that synthesises:
 - The company's internal 10-K highlights (growth drivers, financial strengths, strategic initiatives)
 - External market sentiment, key risks, or headwinds
 
 Follow this pattern:
 "While [Company] highlights [internal positives] in their 10-K, [external market context / risks / sentiment]."
 
-Return ONLY the single sentence. No preamble, no explanation, no line breaks."""
+Also add exactly 3 short tags (2–4 words each) capturing key themes from the synthesis.
+
+Return ONLY a raw JSON object — no markdown fences, no other text:
+
+{{"outlook": "<the single sentence>", "tags": ["Tag One", "Tag Two", "Tag Three"]}}"""
 
 _RISKS_PROMPT = """You are a senior financial analyst performing a risk assessment.
 
@@ -67,6 +73,40 @@ Extract the 5–8 most significant risk factors mentioned or implied. Return the
 Valid categories: Regulatory, Market, Operational, Financial, Geopolitical, Technology, Competition, Legal.
 
 Return ONLY the raw JSON array."""
+
+_GROWTH_STRATEGIES_PROMPT = """You are a senior financial analyst.
+
+For the company with ticker {ticker}:
+1. Use the vector_store tool with collection_name="sec_filings", query_text="revenue growth drivers market expansion strategy TAM new products segments {ticker} 10-K MD&A", n_results=8 to retrieve growth and strategy content.
+2. Optionally use get_company_financials for recent performance context.
+
+Produce 5–8 insight cards describing growth strategies, market expansion, product initiatives, and revenue drivers grounded in the filing.
+
+Each card is a JSON object with keys: title (short), page_ref (e.g. Item 7, MD&A, or 10-K if unknown), description (1–2 sentences), impact (short label like STRATEGIC DRIVER or HIGH IMPACT), impact_level (one of: high, medium, low, positive_high, positive_medium), icon (one emoji).
+
+Return ONLY a raw JSON array — no markdown fences:
+
+[
+  {{"title": "...", "page_ref": "...", "description": "...", "impact": "...", "impact_level": "positive_high", "icon": "📈"}},
+  ...
+]"""
+
+_CAPEX_PROMPT = """You are a senior financial analyst.
+
+For the company with ticker {ticker}:
+1. Use the vector_store tool with collection_name="sec_filings", query_text="capital expenditures CapEx PP&E property plant equipment investing cash flow facilities {ticker} 10-K", n_results=8 to retrieve capital spending and investment disclosures.
+2. Optionally use get_company_financials if relevant.
+
+Produce 5–8 insight cards on capital expenditure levels, major investments, facility or cloud infrastructure spend, and how cash is deployed for growth — grounded in the filing.
+
+Each card: title, page_ref, description, impact, impact_level (high, medium, low, positive_high, positive_medium), icon (one emoji).
+
+Return ONLY a raw JSON array — no markdown fences:
+
+[
+  {{"title": "...", "page_ref": "...", "description": "...", "impact": "...", "impact_level": "medium", "icon": "🏗️"}},
+  ...
+]"""
 
 _AI_THEMES_PROMPT = """You are a senior financial analyst.
 
@@ -159,6 +199,58 @@ def _extract_json_array(text: str) -> list[dict]:
     return []
 
 
+def _extract_json_object(text: str) -> dict | None:
+    """Parse a JSON object from LLM output (handles fences and preamble)."""
+    text = text.strip()
+    for candidate in (text, re.sub(r"```(?:json)?\s*(.*?)\s*```", r"\1", text, flags=re.DOTALL).strip()):
+        try:
+            result = json.loads(candidate)
+            if isinstance(result, dict):
+                return result
+        except json.JSONDecodeError:
+            pass
+    start, end = text.find("{"), text.rfind("}")
+    if start != -1 and end > start:
+        try:
+            result = json.loads(text[start : end + 1])
+            if isinstance(result, dict):
+                return result
+        except json.JSONDecodeError:
+            pass
+    return None
+
+
+def _parse_disclosure_insight_cards(text: str) -> list[DisclosureInsightCard]:
+    raw_items = _extract_json_array(text)
+    cards: list[DisclosureInsightCard] = []
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            cards.append(DisclosureInsightCard.model_validate(item))
+        except Exception:
+            logger.warning("Skipping malformed disclosure card item: %s", item)
+    return cards
+
+
+def _filing_risk_to_insight_card(r: FilingRisk) -> DisclosureInsightCard:
+    cl = (r.category or "risk").lower()
+    if cl in ("regulatory", "legal", "geopolitical"):
+        level, impact = "high", "HIGH IMPACT"
+    elif cl in ("market", "financial", "competition", "technology", "operational"):
+        level, impact = "medium", "MEDIUM IMPACT"
+    else:
+        level, impact = "medium", "MEDIUM IMPACT"
+    return DisclosureInsightCard(
+        title=r.title,
+        page_ref="10-K · Item 1A",
+        description=r.description,
+        impact=impact,
+        impact_level=level,
+        icon="⚠️",
+    )
+
+
 # ── Service ───────────────────────────────────────────────────────────────────
 
 class AnalysisService:
@@ -185,12 +277,26 @@ class AnalysisService:
             ChatRequest(message=prompt, conversation_id=str(uuid4()))
         )
 
-        # Clean up any stray whitespace / newlines from the LLM
-        outlook = response.answer.strip().replace("\n", " ")
+        raw = response.answer.strip()
+        data = _extract_json_object(raw)
+        tags: list[str] = []
+        if data and isinstance(data.get("outlook"), str):
+            outlook = str(data["outlook"]).strip().replace("\n", " ")
+            raw_tags = data.get("tags")
+            if isinstance(raw_tags, list):
+                tags = [str(t).strip() for t in raw_tags if isinstance(t, str) and t.strip()][:8]
+        else:
+            outlook = raw.replace("\n", " ")
+            logger.warning(
+                "AnalysisService.get_overall_outlook: JSON parse failed for %s; using raw text. %.200s",
+                ticker,
+                raw,
+            )
 
         return OverallOutlookResponse(
             ticker=ticker,
             outlook=outlook,
+            tags=tags,
             tool_calls=response.tool_calls,
         )
 
@@ -228,6 +334,61 @@ class AnalysisService:
         return FilingRisksResponse(
             ticker=ticker,
             risks=risks,
+            tool_calls=response.tool_calls,
+        )
+
+    async def get_risk_insights(self, ticker: str) -> DisclosureInsightsResponse:
+        """
+        Risk insight cards for dashboards — reuses filing-risk extraction then maps
+        to card layout (one agent call via get_filing_risks).
+        """
+        fr = await self.get_filing_risks(ticker)
+        cards = [_filing_risk_to_insight_card(r) for r in fr.risks]
+        return DisclosureInsightsResponse(
+            ticker=fr.ticker,
+            cards=cards,
+            tool_calls=fr.tool_calls,
+        )
+
+    async def get_growth_strategy_insights(self, ticker: str) -> DisclosureInsightsResponse:
+        """Growth and strategy insight cards from the 10-K."""
+        ticker = ticker.upper().strip()
+        prompt = _GROWTH_STRATEGIES_PROMPT.format(ticker=ticker)
+        logger.info("AnalysisService.get_growth_strategy_insights | ticker=%s", ticker)
+        response = await self._agent.chat(
+            ChatRequest(message=prompt, conversation_id=str(uuid4()))
+        )
+        cards = _parse_disclosure_insight_cards(response.answer)
+        if not cards:
+            logger.warning(
+                "AnalysisService.get_growth_strategy_insights: no cards for %s; raw: %.300s",
+                ticker,
+                response.answer,
+            )
+        return DisclosureInsightsResponse(
+            ticker=ticker,
+            cards=cards,
+            tool_calls=response.tool_calls,
+        )
+
+    async def get_capex_insights(self, ticker: str) -> DisclosureInsightsResponse:
+        """Capital expenditure and investment insight cards from the 10-K."""
+        ticker = ticker.upper().strip()
+        prompt = _CAPEX_PROMPT.format(ticker=ticker)
+        logger.info("AnalysisService.get_capex_insights | ticker=%s", ticker)
+        response = await self._agent.chat(
+            ChatRequest(message=prompt, conversation_id=str(uuid4()))
+        )
+        cards = _parse_disclosure_insight_cards(response.answer)
+        if not cards:
+            logger.warning(
+                "AnalysisService.get_capex_insights: no cards for %s; raw: %.300s",
+                ticker,
+                response.answer,
+            )
+        return DisclosureInsightsResponse(
+            ticker=ticker,
+            cards=cards,
             tool_calls=response.tool_calls,
         )
 

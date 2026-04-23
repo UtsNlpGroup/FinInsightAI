@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 from app.core.dependencies import get_analysis_service
 from app.schemas.analysis import (
     AIThemesResponse,
+    DisclosureInsightsResponse,
     FilingRisksResponse,
     MarketNewsResponse,
     OverallOutlookResponse,
@@ -106,6 +107,84 @@ async def get_filing_risks(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to extract filing risks.",
+        ) from exc
+
+
+# ── GET /risks/{ticker} ─────────────────────────────────────────────────────────
+
+@router.get(
+    "/risks/{ticker}",
+    response_model=DisclosureInsightsResponse,
+    summary="10-K risk factors as dashboard cards",
+    description=(
+        "Runs the same filing-risk extraction as /filing-risks and maps results "
+        "to title, description, impact badges, and icons for UI cards."
+    ),
+)
+async def get_risk_insights(
+    ticker: str = Path(..., min_length=1, max_length=10, description="Stock ticker, e.g. AAPL."),
+    svc: AnalysisService = Depends(get_analysis_service),
+) -> DisclosureInsightsResponse:
+    logger.info("GET /analysis/risks/%s", ticker)
+    try:
+        return await svc.get_risk_insights(ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unhandled error in /analysis/risks/%s", ticker)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load risk insights.",
+        ) from exc
+
+
+# ── GET /growth-strategies/{ticker} ─────────────────────────────────────────────
+
+@router.get(
+    "/growth-strategies/{ticker}",
+    response_model=DisclosureInsightsResponse,
+    summary="Growth and strategy insights from the 10-K",
+    description="Queries sec_filings for growth drivers, expansion, and strategic initiatives.",
+)
+async def get_growth_strategy_insights(
+    ticker: str = Path(..., min_length=1, max_length=10, description="Stock ticker, e.g. AAPL."),
+    svc: AnalysisService = Depends(get_analysis_service),
+) -> DisclosureInsightsResponse:
+    logger.info("GET /analysis/growth-strategies/%s", ticker)
+    try:
+        return await svc.get_growth_strategy_insights(ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unhandled error in /analysis/growth-strategies/%s", ticker)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load growth strategy insights.",
+        ) from exc
+
+
+# ── GET /capex/{ticker} ───────────────────────────────────────────────────────
+
+@router.get(
+    "/capex/{ticker}",
+    response_model=DisclosureInsightsResponse,
+    summary="CapEx and investment insights from the 10-K",
+    description="Queries sec_filings for capital expenditures, PP&E, and investing cash flows.",
+)
+async def get_capex_insights(
+    ticker: str = Path(..., min_length=1, max_length=10, description="Stock ticker, e.g. AAPL."),
+    svc: AnalysisService = Depends(get_analysis_service),
+) -> DisclosureInsightsResponse:
+    logger.info("GET /analysis/capex/%s", ticker)
+    try:
+        return await svc.get_capex_insights(ticker)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unhandled error in /analysis/capex/%s", ticker)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load CapEx insights.",
         ) from exc
 
 
