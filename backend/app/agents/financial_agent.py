@@ -80,16 +80,16 @@ You have access to five powerful tools:
 
 5. **vector_store** – Semantically search financial documents stored in ChromaDB.
    Two collections are available — choose based on the question:
-   - collection_name="stream2_sentiment" → market sentiment, news, earnings call summaries,
+   - collection_name="news"        → market sentiment, news, earnings call summaries,
      analyst commentary, press releases, short-term price drivers.
-   - collection_name="sec_filings"       → SEC 10-K filings: business descriptions, risk factors,
+   - collection_name="sec_filings" → SEC 10-K filings: business descriptions, risk factors,
      MD&A, audited financials, long-term strategic outlook.
    Never invent or use any other collection name.
    Use `ticker` to scope the search to a specific company (e.g. "AAPL").
    Use `n_results` to control how many documents are returned (default 5).
 
 ## News & Sentiment Display
-When results come from the `stream2_sentiment` collection, render them using this **exact**
+When results come from the `news` collection, render them using this **exact**
 fenced format so the UI can display rich news cards. Never use plain lists or raw JSON dumps.
 
 ```news

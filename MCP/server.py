@@ -55,7 +55,7 @@ async def health_check(request):
 # ---------------------------------------------------------------------------
 
 _CHROMA_URL        = os.getenv("CHROMA_URL", "")
-_DEFAULT_COLLECTION = os.getenv("CHROMA_DEFAULT_COLLECTION", "stream2_sentiment")
+_DEFAULT_COLLECTION = os.getenv("CHROMA_DEFAULT_COLLECTION", "news")
 _CF_CLIENT_ID      = os.getenv("CF-ACCESS-CLIENT-ID", "")
 _CF_CLIENT_SECRET  = os.getenv("CF-ACCESS-CLIENT-SECRET", "")
 _OPENAI_API_KEY    = os.getenv("OPENAI_API_KEY", "")
@@ -503,11 +503,11 @@ def place_order(
 # ---------------------------------------------------------------------------
 
 class VectorStoreInput(BaseModel):
-    collection_name: Literal["stream2_sentiment", "sec_filings"] = Field(
+    collection_name: Literal["news", "sec_filings"] = Field(
         default=_DEFAULT_COLLECTION,
         description=(
             "ChromaDB collection to query. Choose based on the question type:\n"
-            "• 'stream2_sentiment' – market sentiment, news headlines, earnings call summaries, "
+            "• 'news' – market sentiment, news headlines, earnings call summaries, "
             "analyst commentary, and press releases.\n"
             "• 'sec_filings' – SEC 10-K annual filings: business descriptions, risk factors, "
             "MD&A sections, and audited financial statements."
@@ -551,18 +551,18 @@ def vector_store(params: VectorStoreInput) -> VectorStoreResult:
 
     Two collections are available — pick the one that matches the question:
 
-    • 'stream2_sentiment'  – Use for questions about market sentiment, recent news, earnings call
-                             summaries, analyst ratings, press releases, or short-term price drivers.
-                             Example queries: "latest news on AAPL", "analyst sentiment for TSLA",
-                             "Q3 earnings beat".
+    • 'news'         – Use for questions about market sentiment, recent news, earnings call
+                       summaries, analyst ratings, press releases, or short-term price drivers.
+                       Example queries: "latest news on AAPL", "analyst sentiment for TSLA",
+                       "Q3 earnings beat".
 
-    • 'sec_filings'        – Use for questions grounded in official SEC 10-K filings: business model,
-                             risk factors, MD&A narrative, audited revenue/expense breakdowns, or
-                             long-term strategic outlook.
-                             Example queries: "AAPL risk factors", "MSFT revenue recognition policy",
-                             "NVDA business description 10-K".
+    • 'sec_filings'  – Use for questions grounded in official SEC 10-K filings: business model,
+                       risk factors, MD&A narrative, audited revenue/expense breakdowns, or
+                       long-term strategic outlook.
+                       Example queries: "AAPL risk factors", "MSFT revenue recognition policy",
+                       "NVDA business description 10-K".
 
-    IMPORTANT: Only use 'stream2_sentiment' or 'sec_filings'. Never invent or guess a collection name.
+    IMPORTANT: Only use 'news' or 'sec_filings'. Never invent or guess a collection name.
 
     Use `ticker` to scope the search to a specific company.
     Use `n_results` to control how many documents are returned (default 5, max 50).

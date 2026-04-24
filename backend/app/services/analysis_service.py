@@ -111,7 +111,7 @@ Return ONLY a raw JSON array — no markdown fences:
 _AI_THEMES_PROMPT = """You are a senior financial analyst.
 
 For the company with ticker {ticker}:
-1. Use the vector_store tool with collection_name="stream2_sentiment", query_text="themes trends topics {ticker} news analysis outlook", ticker="{ticker}", n_results=15 to retrieve recent news and sentiment data.
+1. Use the vector_store tool with collection_name="news", query_text="themes trends topics {ticker} news analysis outlook", ticker="{ticker}", n_results=15 to retrieve recent news and sentiment data.
 
 From the retrieved documents, extract 5–8 recurring themes, topics, or narratives that dominate the coverage (e.g. "Services Growth", "AI Integration", "Margin Pressure", "Antitrust Risk", "FSD Update").
 
@@ -122,7 +122,7 @@ Return ONLY a raw JSON array of short theme strings (2–4 words each) — no pr
 _SENTIMENT_DIVERGENCE_PROMPT = """You are a senior financial analyst.
 
 For the company with ticker {ticker}:
-1. Use the vector_store tool with collection_name="stream2_sentiment", query_text="{ticker} market sentiment news analysis", ticker="{ticker}", n_results=20 to retrieve a broad set of news and sentiment data.
+1. Use the vector_store tool with collection_name="news", query_text="{ticker} market sentiment news analysis", ticker="{ticker}", n_results=20 to retrieve a broad set of news and sentiment data.
 
 Count the total number of documents retrieved. For each document, classify its sentiment as "bullish", "neutral", or "bearish" based on its content and any sentiment metadata.
 
@@ -141,7 +141,7 @@ The three percentages must add up to 100. If no documents are found, return equa
 _MARKET_NEWS_PROMPT = """You are a senior financial analyst.
 
 For the company with ticker {ticker}:
-1. Use the vector_store tool with collection_name="stream2_sentiment", query_text="{ticker} latest news headlines market updates", ticker="{ticker}", n_results=8 to retrieve recent news items.
+1. Use the vector_store tool with collection_name="news", query_text="{ticker} latest news headlines market updates", ticker="{ticker}", n_results=8 to retrieve recent news items.
 
 For each document returned, extract:
 - title: the headline or main topic (from the document text)

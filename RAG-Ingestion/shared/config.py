@@ -1,0 +1,34 @@
+# Environment variable key names
+CHROMA_HOST_KEY = "CHROMA_HOST"
+CF_CLIENT_ID_KEY = "CF_ACCESS_CLIENT_ID"
+CF_CLIENT_SECRET_KEY = "CF_ACCESS_CLIENT_SECRET"
+
+# Supabase env var keys
+SUPABASE_URL_KEY = "SUPABASE_URL"
+SUPABASE_KEY_KEY = "SUPABASE_KEY"
+
+# Chroma connection defaults
+DEFAULT_CHROMA_PORT = 443
+DEFAULT_CHROMA_SSL = True
+
+# 10-K chunking defaults
+DEFAULT_CHUNK_SIZE = 1000
+DEFAULT_CHUNK_OVERLAP = 200
+
+# 10-K collection
+DEFAULT_10K_COLLECTION = "sec_filings"
+
+# 10-K embedding model
+DEFAULT_EMBEDDING_MODEL = "BAAI/bge-small-en"
+
+# News collection
+DEFAULT_NEWS_COLLECTION = "news"
+
+# News fetching defaults
+DEFAULT_NEWS_COUNT = 25
+
+# News scraper defaults
+DEFAULT_SCRAPE_TIMEOUT = 10
+DEFAULT_MIN_ARTICLE_CHARS = 400
+DEFAULT_MIN_SUMMARY_CHARS = 60
+DEFAULT_RATE_LIMIT_SLEEP = 0.5

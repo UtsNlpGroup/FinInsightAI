@@ -195,7 +195,7 @@ async def get_capex_insights(
     response_model=AIThemesResponse,
     summary="Extract recurring AI/market themes from recent news",
     description=(
-        "Queries the stream2_sentiment collection and returns 5–8 recurring "
+        "Queries the news collection and returns 5–8 recurring "
         "themes or narratives found in recent coverage of the ticker "
         "(e.g. 'Services Growth', 'AI Integration', 'Margin Pressure')."
     ),
@@ -221,7 +221,7 @@ async def get_ai_themes(
     response_model=SentimentDivergenceResponse,
     summary="Get institutional vs social sentiment divergence",
     description=(
-        "Queries the stream2_sentiment collection with a large result set and "
+        "Queries the news collection with a large result set and "
         "returns a breakdown of dominant sentiment by source category "
         "(Institutional Focus vs Social Sentiment), each with a percentage."
     ),
@@ -247,7 +247,7 @@ async def get_sentiment_divergence(
     response_model=MarketNewsResponse,
     summary="Get recent news items for the Market Sentiment feed",
     description=(
-        "Queries the stream2_sentiment collection and returns up to 8 recent "
+        "Queries the news collection and returns up to 8 recent "
         "news items with title, summary, sentiment, source, relative time, and URL."
     ),
 )
