@@ -57,7 +57,9 @@ def fetch_companies() -> list[Company]:
         "order": "ticker.asc",
     }
 
+    print(f"[Supabase] Sending GET request to: {endpoint}")
     response = requests.get(endpoint, headers=headers, params=params, timeout=15)
+    print(f"[Supabase] Response received with status code: {response.status_code}")
 
     if not response.ok:
         raise RuntimeError(
@@ -65,6 +67,7 @@ def fetch_companies() -> list[Company]:
         )
 
     rows = response.json()
+    print(f"[Supabase] Raw response body: {response.text[:500]}")
     return [
         Company(
             ticker=row["ticker"],

@@ -2,20 +2,30 @@ from pathlib import Path
 
 
 class HTMLLoader:
-    """Loads a 10-K HTML file from disk and returns its contents as a string."""
+    """
+    Reads a 10-K filing document from disk and returns its contents as a string.
+
+    Accepts any text-based format produced by sec-edgar-downloader:
+      - .htm / .html  — rich HTML filings (parsed by TenKParser via BeautifulSoup)
+      - .txt          — plain-text or SGML submissions (handled by TenKParser's
+                        regex fallback)
+    """
 
     def load(self, path: str) -> str:
         """
-        Read the HTML file at the given path.
+        Read the filing document at the given path.
 
         Args:
-            path: Absolute or relative path to the .html file.
+            path: Absolute or relative path to the filing file.
 
         Returns:
-            Full HTML text with UTF-8 encoding; encoding errors are ignored.
+            Full file contents as a UTF-8 string; encoding errors are ignored.
+
+        Raises:
+            FileNotFoundError: If the file does not exist.
         """
         file_path = Path(path)
         if not file_path.exists():
-            raise FileNotFoundError(f"10-K HTML file not found: {file_path.resolve()}")
+            raise FileNotFoundError(f"10-K filing file not found: {file_path.resolve()}")
 
         return file_path.read_text(encoding="utf-8", errors="ignore")

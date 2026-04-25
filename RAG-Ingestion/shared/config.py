@@ -18,8 +18,9 @@ DEFAULT_CHUNK_OVERLAP = 200
 # 10-K collection
 DEFAULT_10K_COLLECTION = "sec_filings"
 
-# 10-K embedding model
-DEFAULT_EMBEDDING_MODEL = "BAAI/bge-small-en"
+# FinBERT sentiment model (news ingestion)
+DEFAULT_FINBERT_MODEL = "ProsusAI/finbert"
+FINBERT_MAX_LENGTH = 512
 
 # News collection
 DEFAULT_NEWS_COLLECTION = "news"

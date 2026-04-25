@@ -1,5 +1,5 @@
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
+import chromadb
+from chromadb.utils import embedding_functions
 from langchain_core.documents import Document
 
 from shared import config as cfg
@@ -8,43 +8,54 @@ from shared.chroma_client import ChromaClientConfig, ChromaClientFactory
 
 class TenKEmbedder:
     """
-    Wraps the HuggingFace BGE embedding model and the remote Chroma vector store
-    for 10-K document upload.
-
-    Uses ChromaClientFactory from shared to avoid duplicating the connection logic.
+    Uploads 10-K chunks to the remote Chroma vector store using the same
+    DefaultEmbeddingFunction (all-MiniLM-L6-v2) as the news pipeline,
+    so both collections share an identical embedding space.
     """
 
-    def __init__(
-        self,
-        collection_name: str = cfg.DEFAULT_10K_COLLECTION,
-        embedding_model_name: str = cfg.DEFAULT_EMBEDDING_MODEL,
-    ) -> None:
+    def __init__(self, collection_name: str = cfg.DEFAULT_10K_COLLECTION) -> None:
         self._collection_name = collection_name
-        self._embedding_model = HuggingFaceEmbeddings(
-            model_name=embedding_model_name,
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True},
-        )
+
         client_config = ChromaClientConfig.from_env()
-        self._chroma_client = ChromaClientFactory.create(client_config)
+        chroma_client = ChromaClientFactory.create(client_config)
+
+        emb_fn = embedding_functions.DefaultEmbeddingFunction()
+        self._collection: chromadb.Collection = chroma_client.get_or_create_collection(
+            name=collection_name,
+            embedding_function=emb_fn,
+        )
 
     def upload(self, documents: list[Document]) -> None:
         """
-        Embed and upload a list of LangChain Documents to the Chroma collection.
+        Add new chunks to the Chroma collection, skipping any whose ID already
+        exists — the same deduplication strategy used by the news pipeline.
 
         Args:
             documents: Chunked Document objects produced by TenKChunker.
         """
         if not documents:
-            print("No documents to upload — skipping.")
+            print("[TenKEmbedder] No documents to upload — skipping.")
             return
 
-        vectorstore = Chroma(
-            client=self._chroma_client,
-            collection_name=self._collection_name,
-            embedding_function=self._embedding_model,
+        all_ids = [doc.metadata["id"] for doc in documents]
+
+        existing = self._collection.get(ids=all_ids, include=[])
+        existing_ids = set(existing["ids"])
+
+        new_docs = [doc for doc in documents if doc.metadata["id"] not in existing_ids]
+
+        print(
+            f"[TenKEmbedder] {len(documents)} chunks total — "
+            f"{len(existing_ids)} already exist, {len(new_docs)} new."
         )
 
-        print(f"Uploading {len(documents)} chunks to collection '{self._collection_name}'...")
-        vectorstore.add_documents(documents)
-        print("Upload complete.")
+        if not new_docs:
+            print("[TenKEmbedder] All chunks already in vector store — skipping upload.")
+            return
+
+        self._collection.add(
+            ids=[doc.metadata["id"] for doc in new_docs],
+            documents=[doc.page_content for doc in new_docs],
+            metadatas=[doc.metadata for doc in new_docs],
+        )
+        print(f"[TenKEmbedder] Uploaded {len(new_docs)} new chunks to '{self._collection_name}'.")

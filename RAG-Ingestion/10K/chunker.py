@@ -8,8 +8,10 @@ from shared import config as cfg
 
 class TenKChunker:
     """
-    Splits 10-K section text into overlapping LangChain Document chunks,
-    each tagged with company and section metadata.
+    Splits a plain-text 10-K filing into overlapping chunks.
+
+    Each chunk gets a deterministic UUID v5 derived from "{ticker}_{chunk_text}"
+    so that re-running the pipeline never creates duplicate vector-store entries.
     """
 
     def __init__(
@@ -22,36 +24,34 @@ class TenKChunker:
             chunk_overlap=chunk_overlap,
         )
 
-    def chunk(self, sections: dict[str, str], company: str) -> list[Document]:
+    def chunk(self, text: str, company: str, ticker: str = "") -> list[Document]:
         """
-        Convert section text into LangChain Documents.
+        Split plain text into LangChain Documents.
 
         Args:
-            sections: Mapping of section name → text (e.g. {'business': '...', 'risk': '...', 'mda': '...'}).
-            company:  Company name embedded in each Document's metadata.
+            text:    Full plain-text content of the 10-K filing.
+            company: Company name stored in each chunk's metadata.
+            ticker:  Stock ticker symbol stored in each chunk's metadata.
 
         Returns:
-            Flat list of Document objects ready for vector store upload.
+            List of Document objects ready for vector-store upload.
         """
-        documents: list[Document] = []
+        prefix = ticker if ticker else company
+        chunks = self._splitter.split_text(text)
 
-        for section_name, content in sections.items():
-            if not content.strip():
-                continue
-
-            chunks = self._splitter.split_text(content)
-
-            for chunk in chunks:
-                documents.append(
-                    Document(
-                        page_content=chunk,
-                        metadata={
-                            "company": company,
-                            "section": section_name,
-                            "source": f"{company} 10-K",
-                            "id": str(uuid.uuid4()),
-                        },
-                    )
+        documents = []
+        for chunk in chunks:
+            chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{prefix}_{chunk}"))
+            documents.append(
+                Document(
+                    page_content=chunk,
+                    metadata={
+                        "id": chunk_id,
+                        "ticker": ticker,
+                        "company": company,
+                        "source": f"{company} 10-K",
+                    },
                 )
+            )
 
         return documents

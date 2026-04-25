@@ -7,8 +7,8 @@ from tenk.embedder import TenKEmbedder
 
 class TenKIngestor(BaseIngestor):
     """
-    Orchestrates the full 10-K ingestion pipeline:
-      HTML file → parse sections → chunk → embed & upload to Chroma.
+    Orchestrates the 10-K ingestion pipeline:
+      File on disk → plain text → chunks → upload to Chroma.
     """
 
     def __init__(
@@ -18,48 +18,40 @@ class TenKIngestor(BaseIngestor):
         chunker: TenKChunker | None = None,
         embedder: TenKEmbedder | None = None,
     ) -> None:
-        self._loader = loader or HTMLLoader()
-        self._parser = parser or TenKParser()
+        self._loader  = loader  or HTMLLoader()
+        self._parser  = parser  or TenKParser()
         self._chunker = chunker or TenKChunker()
         self._embedder = embedder or TenKEmbedder()
 
-    def ingest(self, file_path: str, company: str) -> dict:
+    def ingest(self, file_path: str, company: str, ticker: str = "") -> dict:
         """
-        Run the complete ingestion pipeline for one 10-K filing.
+        Run the full ingestion pipeline for one 10-K filing.
 
         Args:
-            file_path: Path to the 10-K HTML file on disk.
+            file_path: Path to the filing document on disk.
             company:   Company name used for metadata and logging.
+            ticker:    Stock ticker symbol stored in chunk metadata.
 
         Returns:
-            Stats dict with keys: company, file_path, sections_found,
-            total_chunks, chunks_per_section.
+            Stats dict with keys: company, file_path, total_chunks.
         """
-        print(f"\n[TenKIngestor] Starting ingestion for {company} ({file_path})")
+        print(f"\n[TenKIngestor] Starting ingestion for {company} ({ticker}) from {file_path}")
 
-        html = self._loader.load(file_path)
+        raw = self._loader.load(file_path)
+        text = self._parser.parse(company, raw)
 
-        sections = self._parser.parse(company, html)
-        sections_found = [k for k, v in sections.items() if v.strip()]
-        print(f"[TenKIngestor] Sections extracted: {sections_found}")
-
-        documents = self._chunker.chunk(sections, company)
-        print(f"[TenKIngestor] Total chunks created: {len(documents)}")
-
-        chunks_per_section: dict[str, int] = {}
-        for doc in documents:
-            section = doc.metadata.get("section", "unknown")
-            chunks_per_section[section] = chunks_per_section.get(section, 0) + 1
+        documents = self._chunker.chunk(text, company, ticker=ticker)
+        print(f"[TenKIngestor] Total chunks: {len(documents)}")
 
         self._embedder.upload(documents)
 
         stats = {
             "company": company,
             "file_path": file_path,
-            "sections_found": sections_found,
             "total_chunks": len(documents),
-            "chunks_per_section": chunks_per_section,
+            # kept for backwards-compat with summary print in main.py
+            "chunks_per_section": {},
         }
 
-        print(f"[TenKIngestor] Done. Stats: {stats}")
+        print(f"[TenKIngestor] Done. {len(documents)} chunks for {company}.")
         return stats

@@ -57,6 +57,9 @@ def load_companies() -> list[Company]:
     """Fetch tracked companies from Supabase public.companies."""
     print("Fetching company list from Supabase...")
     companies = fetch_companies()
+    if not companies:
+        print("  No companies found in Supabase. Nothing to ingest — exiting.")
+        sys.exit(0)
     print(f"  Found {len(companies)} companies: {[c.ticker for c in companies]}")
     return companies
 
@@ -82,16 +85,13 @@ def run_10k_ingestion(companies: list[Company]) -> None:
             print(f"[WARN] No 10-K found for {company.ticker}, skipping.")
             continue
 
-        stats = ingestor.ingest(str(file_path), company.company_name)
+        stats = ingestor.ingest(str(file_path), company.company_name, ticker=company.ticker)
         stats["ticker"] = company.ticker
         all_stats.append(stats)
 
     print("\n--- 10-K Ingestion Summary ---")
     for s in all_stats:
-        section_detail = ", ".join(
-            f"{k}={v}" for k, v in s["chunks_per_section"].items()
-        )
-        print(f"  {s['ticker']} ({s['company']}): {s['total_chunks']} chunks ({section_detail})")
+        print(f"  {s['ticker']} ({s['company']}): {s['total_chunks']} chunks")
 
 
 def run_news_ingestion(companies: list[Company]) -> None:

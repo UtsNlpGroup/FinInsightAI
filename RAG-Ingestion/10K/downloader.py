@@ -1,113 +1,112 @@
 """
 Downloads the most recent 10-K filing for a given ticker from SEC EDGAR
-using `edgartools` (already a project dependency) and saves the primary
-document as an HTML file under:
+using `sec-edgar-downloader` and stores the raw files as-is under:
 
-    RAG-Ingestion/data/<TICKER>_10K.html
+    RAG-Ingestion/data/sec-edgar-filings/<TICKER>/10-K/<accession>/
 
-Returns the saved file path so the rest of the pipeline can load it.
+Returns the path to the primary document so the rest of the pipeline
+can load it directly without any format conversion.
+
+Folder structure created by sec-edgar-downloader:
+    data/
+      sec-edgar-filings/
+        AAPL/
+          10-K/
+            0000320193-24-000123/
+              primary-document.htm   ← preferred
+              full-submission.txt
+              ...
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-import edgar
+from sec_edgar_downloader import Downloader
 
 
-# SEC requires a user-agent string: "Company Name email@example.com"
-_EDGAR_IDENTITY = "FinsightAI admin@finsightai.com"
+_EDGAR_COMPANY = "FinsightAI"
+_EDGAR_EMAIL   = "admin@finsightai.com"
 
-# Where to write the downloaded HTML files
 _DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+
+# Preference order when looking for the primary filing document
+_DOC_CANDIDATES = ["primary-document.htm", "*.htm", "*.html"]
 
 
 class TenKDownloader:
     """
-    Downloads the latest 10-K filing for a ticker and writes it to disk as HTML.
+    Downloads the latest 10-K filing for a ticker via sec-edgar-downloader
+    and returns the path to the primary document file.
     """
 
     def __init__(self, data_dir: Path | str | None = None) -> None:
         self._data_dir = Path(data_dir) if data_dir else _DEFAULT_DATA_DIR
         self._data_dir.mkdir(parents=True, exist_ok=True)
-        edgar.set_identity(_EDGAR_IDENTITY)
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
 
     def download(self, ticker: str) -> Path | None:
         """
-        Fetch the most recent 10-K for *ticker* and save it to the data directory.
+        Ensure the latest 10-K for *ticker* is present on disk and return
+        the path to its primary document.
+
+        If the filing directory already exists, the SEC download is skipped
+        and the cached primary document is returned directly.
 
         Args:
             ticker: Stock ticker symbol (e.g. 'AAPL').
 
         Returns:
-            Path to the saved HTML file, or None if no filing was found.
+            Path to the primary filing document, or None if unavailable.
         """
-        out_path = self._data_dir / f"{ticker}_10K.html"
+        filing_dir = self._data_dir / "sec-edgar-filings" / ticker / "10-K"
 
-        if out_path.exists():
-            print(f"[TenKDownloader] {ticker}: cached at {out_path}")
-            return out_path
+        if filing_dir.exists() and any(filing_dir.iterdir()):
+            print(f"[TenKDownloader] {ticker}: already downloaded at {filing_dir}")
+            return self._find_primary_document(filing_dir, ticker)
 
         print(f"[TenKDownloader] {ticker}: fetching from SEC EDGAR...")
         try:
-            company = edgar.Company(ticker)
-            filings = company.get_filings(form="10-K")
-
-            if not filings:
-                print(f"[TenKDownloader] {ticker}: no 10-K filings found.")
-                return None
-
-            filing = filings.latest()
-            html_content = self._extract_html(filing)
-
-            if not html_content:
-                print(f"[TenKDownloader] {ticker}: could not extract HTML from filing.")
-                return None
-
-            out_path.write_text(html_content, encoding="utf-8")
-            print(f"[TenKDownloader] {ticker}: saved {len(html_content):,} chars → {out_path}")
-            return out_path
-
+            dl = Downloader(_EDGAR_COMPANY, _EDGAR_EMAIL, self._data_dir)
+            dl.get("10-K", ticker, limit=1, download_details=True)
         except Exception as exc:
-            print(f"[TenKDownloader] {ticker}: error — {exc}")
+            print(f"[TenKDownloader] {ticker}: download error — {exc}")
             return None
+
+        if not filing_dir.exists() or not any(filing_dir.iterdir()):
+            print(f"[TenKDownloader] {ticker}: no filing directory created after download.")
+            return None
+
+        doc = self._find_primary_document(filing_dir, ticker)
+        if doc:
+            print(f"[TenKDownloader] {ticker}: ready → {doc}")
+        else:
+            print(f"[TenKDownloader] {ticker}: no usable document found in {filing_dir}")
+        return doc
 
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _extract_html(filing) -> str | None:
+    def _find_primary_document(self, filing_dir: Path, ticker: str) -> Path | None:
         """
-        Try multiple edgartools API surfaces to get the HTML of the primary
-        10-K document, falling back to plain text wrapped in <pre> tags.
+        Search accession sub-directories for the best document to parse.
+
+        Priority:
+          1. primary-document.htm  (sec-edgar-downloader canonical name)
+          2. Any other .htm file   (company-named HTM, e.g. aapl-20240928.htm)
+          3. Any .html file
         """
-        # Try the primary document first
-        try:
-            doc = filing.primary_document
-            if doc is not None:
-                html = doc.html()
-                if html:
-                    return html
-        except Exception:
-            pass
+        for accession_dir in sorted(filing_dir.iterdir()):
+            if not accession_dir.is_dir():
+                continue
 
-        # Try .document attribute (older edgartools versions)
-        try:
-            doc = filing.document
-            if doc is not None:
-                html = doc.html()
-                if html:
-                    return html
-        except Exception:
-            pass
-
-        # Fallback: plain text wrapped in <pre> so the HTML loader still works
-        try:
-            text = filing.text()
-            if text:
-                return f"<html><body><pre>{text}</pre></body></html>"
-        except Exception:
-            pass
+            for pattern in _DOC_CANDIDATES:
+                matches = sorted(accession_dir.glob(pattern))
+                if matches:
+                    return matches[0]
 
         return None

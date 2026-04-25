@@ -9,17 +9,24 @@ from shared.chroma_client import ChromaClientConfig, ChromaClientFactory
 from News.collector import NewsCollector
 from News.scraper import ArticleScraper
 from News.chunker import NewsChunker
+from News.sentiment import FinBERTSentiment
 
 
 class NewsIngestor(BaseIngestor):
     """
     Orchestrates the full news ingestion pipeline for one ticker:
-      Discover → Scrape → Tier text → Chunk → Upload to Chroma.
+      Discover → Scrape → Tier text → FinBERT sentiment → Chunk → Upload to Chroma.
 
-    Tiering strategy (mirrors the notebook):
-      - high:   Full scraped article text  (window_size=2)
-      - medium: Yahoo summary/description  (window_size=2)
-      - low:    Synthetic headline document (window_size=1, paywalled articles)
+    Tiering strategy:
+      - high:   Full scraped article text
+      - medium: Yahoo summary/description
+      - low:    Synthetic headline document (paywalled articles)
+
+    FinBERT runs on the representative text for each article (full text when
+    available, summary otherwise, headline for low-quality) and stores:
+      sentiment_label, sentiment_score, sentiment_positive,
+      sentiment_negative, sentiment_neutral
+    as metadata on every chunk belonging to that article.
 
     The skip-if-seen guard queries the collection for the article's
     `original_uuid` before processing, ensuring idempotent runs.
@@ -31,11 +38,13 @@ class NewsIngestor(BaseIngestor):
         collector: NewsCollector | None = None,
         scraper: ArticleScraper | None = None,
         chunker: NewsChunker | None = None,
+        sentiment: FinBERTSentiment | None = None,
         rate_limit_sleep: float = cfg.DEFAULT_RATE_LIMIT_SLEEP,
     ) -> None:
         self._collector = collector or NewsCollector()
         self._scraper = scraper or ArticleScraper()
         self._chunker = chunker or NewsChunker()
+        self._sentiment = sentiment or FinBERTSentiment()
         self._rate_limit_sleep = rate_limit_sleep
 
         client_config = ChromaClientConfig.from_env()
@@ -93,12 +102,14 @@ class NewsIngestor(BaseIngestor):
             full_text = self._scraper.scrape(item.get("link", ""), ticker, company_name)
 
             if full_text:
+                sentiment_text = full_text
                 chunks = self._chunker.chunk(full_text, base_metadata, quality="high")
                 tier = "ingested_high"
                 print(f"  [high]   {item.get('title', '')[:60]}...")
             else:
                 summary = item.get("summary") or item.get("description", "")
                 if summary and len(summary) > cfg.DEFAULT_MIN_SUMMARY_CHARS:
+                    sentiment_text = summary
                     chunks = self._chunker.chunk(summary, base_metadata, quality="medium")
                     tier = "ingested_medium"
                     print(f"  [medium] {item.get('title', '')[:60]}...")
@@ -110,9 +121,19 @@ class NewsIngestor(BaseIngestor):
                         f"Financial News Headline from {pub}: {headline}. "
                         f"Related Assets: {related}."
                     )
+                    sentiment_text = synthetic_doc
                     chunks = self._chunker.chunk(synthetic_doc, base_metadata, quality="low")
                     tier = "ingested_low"
                     print(f"  [low]    {headline[:60]}...")
+
+            # Run FinBERT on the representative text and attach to every chunk
+            sentiment_fields = self._sentiment.analyse(sentiment_text)
+            print(
+                f"         sentiment={sentiment_fields['sentiment_label']} "
+                f"(score={sentiment_fields['sentiment_score']:+.3f})"
+            )
+            for chunk in chunks:
+                chunk["metadata"].update(sentiment_fields)
 
             if chunks:
                 self._collection.add(
