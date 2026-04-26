@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import {
   Send, TrendingUp, BarChart2, FileSearch, Square,
-  TrendingDown, ShoppingCart,
+  TrendingDown, ShoppingCart, Briefcase,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -195,6 +195,14 @@ function makeActionCards(ticker: string, name: string) {
       description: 'Place a paper sell order',
       prompt: `Place a paper sell order for 1 share of ${ticker} at market price`,
     },
+    {
+      Icon: Briefcase,
+      iconBg: '#F0FDF4',
+      iconColor: '#15803D',
+      title: 'My Portfolio',
+      description: 'Show my current positions, orders & balance',
+      prompt: 'Show me my current portfolio: positions, open orders, cash balance and buying power',
+    },
   ];
 }
 
@@ -246,15 +254,14 @@ function WelcomeState({
       {/* Rolling company name subtitle */}
       <p
         className="text-base font-medium text-center mb-10"
-        style={{ color: '#6B7280', maxWidth: 420 }}
+        style={{ color: '#6B7280', maxWidth: 480 }}
       >
         Let's explore{' '}
-        <span
-          className="font-semibold"
-          style={{ color: '#4F46E5' }}
-        >
+        <span className="font-semibold" style={{ color: '#4F46E5' }}>
           <RollingName name={currentCompanyName} />
         </span>
+        {' '}
+        <span style={{ color: '#9CA3AF' }}>or your portfolio</span>
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-2xl">

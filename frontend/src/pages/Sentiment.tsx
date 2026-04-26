@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMarketMacro } from '../hooks/useMarketMacro';
-import { useAIThemes, useSentimentDivergence, useMarketNews } from '../hooks/useAnalysis';
+import { useAIThemes, useMarketNews } from '../hooks/useAnalysis';
 import type { MarketNewsItem } from '../services/analysisApi';
 
 // ── Shared primitives ────────────────────────────────────────────────────────
@@ -79,11 +79,48 @@ function MacroCard() {
   );
 }
 
+// ── Sentiment Speedometer ─────────────────────────────────────────────────────
+
+function SentimentOverall({ breakdown }: { breakdown: SentimentBreakdown[] }) {
+  const bullishPct = breakdown.find(b => b.sentiment === 'bullish')?.percentage ?? 0;
+  const bearishPct = breakdown.find(b => b.sentiment === 'bearish')?.percentage ?? 0;
+  const neutralPct = breakdown.find(b => b.sentiment === 'neutral')?.percentage ?? 0;
+
+  const rows = [
+    { label: 'Bearish', pct: bearishPct, color: '#EF4444', track: '#FEE2E2', dot: '#FCA5A5' },
+    { label: 'Neutral', pct: neutralPct, color: '#D97706', track: '#FEF3C7', dot: '#FDE68A' },
+    { label: 'Bullish', pct: bullishPct, color: '#10B981', track: '#D1FAE5', dot: '#6EE7B7' },
+  ];
+
+  return (
+    <div className="space-y-3">
+      {rows.map(({ label, pct, color, track, dot }) => (
+        <div key={label}>
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: dot }} />
+              <span className="text-[11px] font-semibold text-slate-700">{label}</span>
+            </div>
+            <span className="text-[13px] font-black tabular-nums" style={{ color }}>
+              {pct}%
+            </span>
+          </div>
+          <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: track }}>
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${pct}%`, background: color }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Overview tab ─────────────────────────────────────────────────────────────
 
 function OverviewTab({ ticker }: { ticker: string }) {
-  const { themes,   loading: themesLoading   } = useAIThemes(ticker);
-  const { breakdown, loading: divLoading     } = useSentimentDivergence(ticker);
+  const { themes, loading: themesLoading } = useAIThemes(ticker);
 
   return (
     <div className="space-y-3 pt-1">
@@ -99,7 +136,7 @@ function OverviewTab({ ticker }: { ticker: string }) {
         {themesLoading ? (
           <div className="flex flex-wrap gap-1.5">
             {[80, 64, 96, 72, 56].map(w => (
-              <div key={w} className={`h-5 w-${w === 80 ? '20' : w === 64 ? '16' : w === 96 ? '24' : w === 72 ? '18' : '14'} rounded-full animate-pulse`}
+              <div key={w} className="h-5 rounded-full animate-pulse"
                 style={{ background: '#E5E7EB', minWidth: w }} />
             ))}
           </div>
@@ -115,59 +152,6 @@ function OverviewTab({ ticker }: { ticker: string }) {
               </span>
             ))}
           </div>
-        )}
-      </div>
-
-      {/* Sentiment Divergence */}
-      <div className="rounded-xl border border-slate-100 bg-white px-4 py-3.5">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">
-          Sentiment Divergence
-        </p>
-        {divLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="space-y-1.5">
-                <div className="flex justify-between">
-                  <SkeletonLine w="w-16" h="h-3" />
-                  <SkeletonLine w="w-10" h="h-3" />
-                </div>
-                <SkeletonLine h="h-2" />
-              </div>
-            ))}
-          </div>
-        ) : breakdown.length === 0 ? (
-          <p className="text-[11px] text-slate-400 italic">No divergence data for {ticker}.</p>
-        ) : (
-          <>
-            {/* Legend rows */}
-            <div className="space-y-2.5">
-              {breakdown.map(item => {
-                const color   = item.sentiment === 'bullish' ? '#10B981'
-                              : item.sentiment === 'bearish' ? '#EF4444'
-                              : '#94A3B8';
-                const trackBg = item.sentiment === 'bullish' ? '#D1FAE5'
-                              : item.sentiment === 'bearish' ? '#FEE2E2'
-                              : '#E2E8F0';
-                return (
-                  <div key={item.label}>
-                    <div className="flex justify-between items-center mb-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                        <span className="text-[11px] font-semibold text-slate-700">{item.label}</span>
-                      </div>
-                      <span className="text-[12px] font-bold tabular-nums" style={{ color }}>
-                        {item.percentage}%
-                      </span>
-                    </div>
-                    <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: trackBg }}>
-                      <div className="h-full rounded-full transition-all duration-700"
-                        style={{ width: `${item.percentage}%`, background: color }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
         )}
       </div>
 
@@ -266,13 +250,6 @@ export default function Sentiment({ ticker = 'AAPL' }: { ticker?: string }) {
 
       {/* Panel header */}
       <div className="shrink-0 px-4 pt-5 pb-3 border-b border-slate-100">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded"
-            style={{ background: '#111827', color: '#fff' }}>
-            NLP
-          </span>
-          <span className="text-[10px] font-medium text-slate-400">Real-time analysis</span>
-        </div>
         <div className="flex items-baseline gap-2">
           <h1 className="text-base font-extrabold tracking-tight text-slate-900">Market Sentiment</h1>
           <span className="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded"

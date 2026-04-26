@@ -153,12 +153,8 @@ interface ModelInfo {
 }
 
 const FALLBACK_MODELS: ModelInfo[] = [
-  { id: 'openai:gpt-5.4-mini',  label: 'GPT-5.4 Mini',  is_default: true  },
-  { id: 'openai:gpt-5.4-nano',  label: 'GPT-5.4 Nano',  is_default: false },
-  { id: 'openai:gpt-4.1',       label: 'GPT-4.1',        is_default: false },
-  { id: 'openai:gpt-4.1-mini',  label: 'GPT-4.1 Mini',  is_default: false },
-  { id: 'openai:gpt-4o',        label: 'GPT-4o',         is_default: false },
-  { id: 'openai:gpt-4o-mini',   label: 'GPT-4o Mini',   is_default: false },
+  { id: 'openai:gpt-5.4-mini', label: 'GPT-5.4 Mini', is_default: true  },
+  { id: 'openai:gpt-5.4-nano', label: 'GPT-5.4 Nano', is_default: false },
 ];
 
 function useModels() {

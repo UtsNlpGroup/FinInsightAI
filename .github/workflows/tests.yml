@@ -1,0 +1,311 @@
+name: FinsightAI Test Suite
+
+on:
+  push:
+    branches: [main, develop, "feature/**"]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:  # allow manual trigger
+
+# Cancel in-flight runs for the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.13"
+  NODE_VERSION: "22"
+
+# ────────────────────────────────────────────────────────────────────────────
+# Job 1: Python unit + integration + API + performance (mocked) + ingestion
+# ────────────────────────────────────────────────────────────────────────────
+jobs:
+  python-tests:
+    name: Python Tests (unit / integration / api / ingestion / performance-mocked)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Install test dependencies
+        run: pip install -r tests/requirements-test.txt
+
+      - name: Install RAG-Ingestion dependencies
+        run: |
+          pip install langchain-text-splitters transformers torch --quiet
+
+      # ── Unit tests (no external I/O) ───────────────────────────────────────
+      - name: Run unit tests
+        env:
+          OPENAI_API_KEY: sk-test-placeholder-for-ci
+          SUPABASE_DB_URL: ""
+          MCP_SERVER_URL: http://localhost:8080/mcp
+        run: |
+          pytest tests/unit/ -v \
+            --timeout=60 \
+            --tb=short \
+            --cov=backend/app \
+            --cov=RAG-Ingestion \
+            --cov-report=xml:coverage-unit.xml \
+            --cov-report=term-missing \
+            -m "not live"
+
+      # ── Integration tests (mocked external services) ───────────────────────
+      - name: Run integration tests
+        env:
+          OPENAI_API_KEY: sk-test-placeholder-for-ci
+          SUPABASE_DB_URL: ""
+          MCP_SERVER_URL: http://localhost:8080/mcp
+        run: |
+          pytest tests/integration/ -v \
+            --timeout=60 \
+            --tb=short \
+            -m "not live"
+
+      # ── API contract tests ─────────────────────────────────────────────────
+      - name: Run API contract tests
+        env:
+          OPENAI_API_KEY: sk-test-placeholder-for-ci
+          SUPABASE_DB_URL: ""
+          MCP_SERVER_URL: http://localhost:8080/mcp
+        run: |
+          pytest tests/api/ -v \
+            --timeout=60 \
+            --tb=short \
+            -m "not live"
+
+      # ── Ingestion pipeline tests (ephemeral Chroma) ────────────────────────
+      - name: Run ingestion pipeline tests
+        run: |
+          pip install chromadb --quiet
+          pytest tests/ingestion/ -v \
+            --timeout=120 \
+            --tb=short \
+            -m "not live"
+
+      # ── Performance tests (mocked – overhead only) ─────────────────────────
+      - name: Run performance tests (mocked)
+        env:
+          OPENAI_API_KEY: sk-test-placeholder-for-ci
+          SUPABASE_DB_URL: ""
+          MCP_SERVER_URL: http://localhost:8080/mcp
+        run: |
+          pytest tests/performance/ -v \
+            --timeout=120 \
+            --tb=short \
+            -m "not live"
+
+      # ── Upload coverage ────────────────────────────────────────────────────
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: python-coverage
+          path: coverage-unit.xml
+          retention-days: 7
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 2: Frontend component tests (Vitest)
+  # ────────────────────────────────────────────────────────────────────────────
+  frontend-tests:
+    name: Frontend Tests (Vitest + Testing Library)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install test dependencies
+        run: |
+          npm install --save-dev \
+            vitest \
+            @vitest/coverage-v8 \
+            @testing-library/react \
+            @testing-library/jest-dom \
+            @testing-library/user-event \
+            jsdom
+
+      - name: Run Vitest component tests
+        run: npx vitest run --coverage
+
+      - name: Upload frontend coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+          retention-days: 7
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 3: Playwright E2E tests (only on main / scheduled runs)
+  # ────────────────────────────────────────────────────────────────────────────
+  playwright-e2e:
+    name: Playwright E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Only run full E2E on main branch or when manually triggered
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+
+    services:
+      # In a real CI, you would spin up the Docker Compose stack here
+      # For brevity, we show the structure (actual services depend on secrets)
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: finsight_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install backend
+        run: pip install -r backend/requirements.txt
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Start backend in background
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SUPABASE_DB_URL: postgresql://postgres:testpassword@localhost:5432/finsight_test
+          MCP_SERVER_URL: http://localhost:8080/mcp
+        run: |
+          cd backend
+          uvicorn app.main:app --host 0.0.0.0 --port 8001 &
+          sleep 5
+          curl -f http://localhost:8001/health || echo "Backend not ready"
+
+      - name: Run Playwright E2E tests
+        working-directory: frontend
+        env:
+          FRONTEND_URL: http://localhost:5173
+          BACKEND_URL: http://localhost:8001
+          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+        run: npx playwright test --reporter=html
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 14
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Job 4: RAG / LangSmith evaluation (scheduled weekly)
+  # ────────────────────────────────────────────────────────────────────────────
+  rag-evaluation:
+    name: RAG Quality Evaluation (RAGAS + LangSmith)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Only on main branch and weekly schedule
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install -r tests/requirements-test.txt
+
+      - name: Run RAGAS evaluation
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CHROMA_URL: ${{ secrets.CHROMA_URL }}
+          CF-ACCESS-CLIENT-ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF-ACCESS-CLIENT-SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          LANGCHAIN_TRACING_V2: "false"
+        run: |
+          pytest tests/rag/ -m "live" -v \
+            --timeout=300 \
+            --tb=short
+
+      - name: Upload RAG evaluation results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rag-evaluation-results
+          path: tests/rag/
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Summary gate: all non-E2E jobs must pass
+  # ────────────────────────────────────────────────────────────────────────────
+  all-tests-pass:
+    name: All Tests Passed
+    needs: [python-tests, frontend-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check status
+        run: |
+          if [[ "${{ needs.python-tests.result }}" != "success" ]]; then
+            echo "❌ Python tests failed"
+            exit 1
+          fi
+          if [[ "${{ needs.frontend-tests.result }}" != "success" ]]; then
+            echo "❌ Frontend tests failed"
+            exit 1
+          fi
+          echo "✅ All required tests passed!"

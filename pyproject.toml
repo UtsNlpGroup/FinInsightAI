@@ -31,3 +31,31 @@ dependencies = [
     "transformers>=5.5.0",
     "yfinance>=1.2.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["backend", "RAG-Ingestion"]
+asyncio_mode = "auto"
+timeout = 120
+markers = [
+    "unit: pure unit tests, no I/O",
+    "integration: wired components with mocked external services",
+    "api: FastAPI contract tests via TestClient",
+    "rag: RAG retrieval quality and RAGAS evaluation tests",
+    "performance: response-time and throughput tests",
+    "ingestion: RAG ingestion pipeline tests",
+    "e2e: full-stack end-to-end tests (requires running stack)",
+    "live: tests that call real external APIs (OpenAI, Chroma, Alpaca)",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["backend/app", "MCP", "RAG-Ingestion"]
+omit = ["*/tests/*", "*/migrations/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 60

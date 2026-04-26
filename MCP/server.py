@@ -1,12 +1,13 @@
 """
 FinsightAI MCP Server
 =====================
-FastMCP server exposing five tools:
+FastMCP server exposing six tools:
   1. get_company_financials  – live snapshot of key financial metrics (yfinance .info)
   2. get_price_history       – historical OHLCV price data for charting
   3. get_fundamentals        – full income / balance / cashflow statements (annual & quarterly)
   4. place_order             – submit a paper-trading order via Alpaca Paper API
-  5. vector_store            – add documents to / query a ChromaDB collection
+  5. get_portfolio           – current positions, open orders and account balance (Alpaca Paper)
+  6. vector_store            – add documents to / query a ChromaDB collection
 """
 
 from __future__ import annotations
@@ -499,7 +500,157 @@ def place_order(
 
 
 # ---------------------------------------------------------------------------
-# Tool 5 – Chroma vector store (add / query)
+# Tool 5 – Alpaca Paper Trading: portfolio snapshot
+# ---------------------------------------------------------------------------
+
+class PositionItem(BaseModel):
+    ticker:          str
+    qty:             float
+    side:            str            # "long" | "short"
+    avg_entry_price: float | None
+    current_price:   float | None
+    market_value:    float | None
+    unrealised_pl:   float | None
+    unrealised_pl_pct: float | None
+
+
+class OrderItem(BaseModel):
+    order_id:        str
+    ticker:          str
+    side:            str
+    order_type:      str
+    qty:             float | None
+    notional:        float | None
+    filled_qty:      float | None
+    filled_avg_price: float | None
+    status:          str
+    submitted_at:    str | None
+
+
+class PortfolioSnapshot(BaseModel):
+    equity:          float | None
+    cash:            float | None
+    buying_power:    float | None
+    portfolio_value: float | None
+    unrealised_pl:   float | None
+    positions:       list[PositionItem]
+    open_orders:     list[OrderItem]
+    message:         str
+
+
+@mcp.tool
+def get_portfolio() -> PortfolioSnapshot:
+    """
+    Return the current paper-trading portfolio: account balance, open positions,
+    and open orders from the Alpaca Paper API.
+
+    Use this tool when the user asks about:
+      - their current holdings, positions, or portfolio
+      - available cash or buying power
+      - open or pending orders
+      - unrealised profit / loss
+
+    Returns a structured snapshot with account figures, each open position
+    (ticker, qty, avg entry price, current price, unrealised P&L), and each
+    open order (ticker, side, qty, status).
+    """
+    errors: list[str] = []
+
+    # ── Account ──────────────────────────────────────────────────────────────
+    equity = cash = buying_power = portfolio_value = unrealised_pl = None
+    try:
+        acc_resp = requests.get(
+            f"{_ALPACA_URL}/account",
+            headers=_ALPACA_HEADERS,
+            timeout=15,
+        )
+        if acc_resp.ok:
+            acc = acc_resp.json()
+            equity          = float(acc.get("equity",          0) or 0)
+            cash            = float(acc.get("cash",            0) or 0)
+            buying_power    = float(acc.get("buying_power",    0) or 0)
+            portfolio_value = float(acc.get("portfolio_value", 0) or 0)
+            unrealised_pl   = float(acc.get("unrealized_pl",   0) or 0)
+        else:
+            errors.append(f"Account [{acc_resp.status_code}]: {acc_resp.text[:200]}")
+    except Exception as exc:
+        errors.append(f"Account request failed: {exc}")
+
+    # ── Positions ─────────────────────────────────────────────────────────────
+    positions: list[PositionItem] = []
+    try:
+        pos_resp = requests.get(
+            f"{_ALPACA_URL}/positions",
+            headers=_ALPACA_HEADERS,
+            timeout=15,
+        )
+        if pos_resp.ok:
+            for p in pos_resp.json():
+                positions.append(PositionItem(
+                    ticker=p.get("symbol", ""),
+                    qty=float(p.get("qty", 0) or 0),
+                    side=p.get("side", "long"),
+                    avg_entry_price=float(p["avg_entry_price"]) if p.get("avg_entry_price") else None,
+                    current_price=float(p["current_price"]) if p.get("current_price") else None,
+                    market_value=float(p["market_value"]) if p.get("market_value") else None,
+                    unrealised_pl=float(p["unrealized_pl"]) if p.get("unrealized_pl") else None,
+                    unrealised_pl_pct=float(p["unrealized_plpc"]) if p.get("unrealized_plpc") else None,
+                ))
+        else:
+            errors.append(f"Positions [{pos_resp.status_code}]: {pos_resp.text[:200]}")
+    except Exception as exc:
+        errors.append(f"Positions request failed: {exc}")
+
+    # ── Open orders ───────────────────────────────────────────────────────────
+    open_orders: list[OrderItem] = []
+    try:
+        ord_resp = requests.get(
+            f"{_ALPACA_URL}/orders",
+            headers=_ALPACA_HEADERS,
+            params={"status": "open", "limit": 50},
+            timeout=15,
+        )
+        if ord_resp.ok:
+            for o in ord_resp.json():
+                open_orders.append(OrderItem(
+                    order_id=o.get("id", ""),
+                    ticker=o.get("symbol", ""),
+                    side=o.get("side", ""),
+                    order_type=o.get("type", ""),
+                    qty=float(o["qty"]) if o.get("qty") else None,
+                    notional=float(o["notional"]) if o.get("notional") else None,
+                    filled_qty=float(o["filled_qty"]) if o.get("filled_qty") else None,
+                    filled_avg_price=float(o["filled_avg_price"]) if o.get("filled_avg_price") else None,
+                    status=o.get("status", ""),
+                    submitted_at=o.get("submitted_at"),
+                ))
+        else:
+            errors.append(f"Orders [{ord_resp.status_code}]: {ord_resp.text[:200]}")
+    except Exception as exc:
+        errors.append(f"Orders request failed: {exc}")
+
+    msg_parts = [
+        f"Portfolio value: ${portfolio_value:,.2f}" if portfolio_value is not None else "",
+        f"{len(positions)} open position(s)",
+        f"{len(open_orders)} open order(s)",
+    ]
+    if errors:
+        msg_parts.append("Errors: " + "; ".join(errors))
+
+    return PortfolioSnapshot(
+        equity=equity,
+        cash=cash,
+        buying_power=buying_power,
+        portfolio_value=portfolio_value,
+        unrealised_pl=unrealised_pl,
+        positions=positions,
+        open_orders=open_orders,
+        message=". ".join(p for p in msg_parts if p),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tool 6 – Chroma vector store (add / query)
 # ---------------------------------------------------------------------------
 
 class VectorStoreInput(BaseModel):

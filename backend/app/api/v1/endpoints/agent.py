@@ -34,12 +34,8 @@ router = APIRouter(prefix="/agent", tags=["Agent"])
 
 # All models available for selection in the UI (full LangChain IDs)
 _AVAILABLE_MODELS: list[dict] = [
-    {"id": "openai:gpt-5.4-mini",  "label": "GPT-5.4 Mini"},
-    {"id": "openai:gpt-5.4-nano",  "label": "GPT-5.4 Nano"},
-    {"id": "openai:gpt-4.1",       "label": "GPT-4.1"},
-    {"id": "openai:gpt-4.1-mini",  "label": "GPT-4.1 Mini"},
-    {"id": "openai:gpt-4o",        "label": "GPT-4o"},
-    {"id": "openai:gpt-4o-mini",   "label": "GPT-4o Mini"},
+    {"id": "openai:gpt-5.4-mini", "label": "GPT-5.4 Mini"},
+    {"id": "openai:gpt-5.4-nano", "label": "GPT-5.4 Nano"},
 ]
 
 

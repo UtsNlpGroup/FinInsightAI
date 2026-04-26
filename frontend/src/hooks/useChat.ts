@@ -10,24 +10,6 @@ import { useState, useCallback, useRef } from 'react';
 import { streamChat, type ApiMessage } from '../services/chatApi';
 import type { ChatMessage } from '../types';
 
-// ── Greeting (display-only, never sent to the API) ────────────────────────────
-// Built dynamically so suggestions reflect the currently selected company.
-
-function makeGreeting(ticker: string, name: string): ChatMessage {
-  return {
-    role: 'assistant',
-    content:
-      "Hello! I'm **FinsightAI**, your financial analyst assistant. " +
-      'Ask me about any US-listed company — I can fetch live financials, ' +
-      'plot price history, and search stored reports.',
-    suggestions: [
-      `Key financials for ${ticker}`,
-      `Show ${ticker} annual revenue trend`,
-      `What are ${name}'s main risk factors?`,
-    ],
-  };
-}
-
 // ── Public types ──────────────────────────────────────────────────────────────
 
 export interface ToolActivity {
@@ -80,18 +62,19 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
     model,
   } = options;
 
-  // Seed from saved session, or show the greeting for a brand-new session
+  // Seed from saved session, or start empty (WelcomeState shown in Chat.tsx)
   const [messages, setMessages] = useState<ChatMessage[]>(
-    initialMessages && initialMessages.length > 0
-      ? initialMessages
-      : [makeGreeting(currentAsset, currentCompanyName)],
+    initialMessages && initialMessages.length > 0 ? initialMessages : [],
   );
   const [isStreaming, setIsStreaming] = useState(false);
   const [toolActivity, setToolActivity] = useState<ToolActivity | null>(null);
 
-  const conversationId  = useRef(crypto.randomUUID());
-  const apiHistory      = useRef<ApiMessage[]>(initialApiHistory ?? []);
-  const abortController = useRef<AbortController | null>(null);
+  const conversationId    = useRef(crypto.randomUUID());
+  const apiHistory        = useRef<ApiMessage[]>(initialApiHistory ?? []);
+  const abortController   = useRef<AbortController | null>(null);
+  // Track whether this is the first user message in this session so we inject
+  // company context only once (not on every subsequent message).
+  const isFirstMessage    = useRef((initialApiHistory ?? []).length === 0);
 
   // Keep company context + model up-to-date in refs so the latest value is
   // always used when sendMessage fires, even if it changed since last render.
@@ -119,20 +102,25 @@ export function useChat(options: UseChatOptions = {}): UseChatReturn {
 
       // ── Build the API message ─────────────────────────────────────────────
       // The displayed message stays exactly as the user typed it.
-      // The API message silently appends the selected company so the agent
-      // always knows the context — even when the user just says "show me
-      // the financials" or "what are the risks".
-      // If the user already mentioned the ticker we skip appending it.
+      // On the very first message of a fresh session we silently append the
+      // selected company so the agent knows the context — on every subsequent
+      // message the history already establishes that context, so we skip it.
       const ticker  = assetRef.current;
       const company = companyRef.current;
-      const alreadyMentioned =
-        trimmed.toLowerCase().includes(ticker.toLowerCase()) ||
-        trimmed.toLowerCase().includes(company.toLowerCase());
-      const apiMessage = alreadyMentioned
-        ? trimmed
-        : `${trimmed} [Selected company: ${company} (${ticker})]`;
 
-      // Also prepend a system context message as a second layer of certainty.
+      let apiMessage = trimmed;
+      if (isFirstMessage.current) {
+        const alreadyMentioned =
+          trimmed.toLowerCase().includes(ticker.toLowerCase()) ||
+          trimmed.toLowerCase().includes(company.toLowerCase());
+        if (!alreadyMentioned) {
+          apiMessage = `${trimmed} [Context: the selected company is ${company} (${ticker})]`;
+        }
+        isFirstMessage.current = false;
+      }
+
+      // Prepend a lightweight system context message so the agent always
+      // defaults to the right company when the user switches tickers.
       const contextMessage: ApiMessage = {
         role: 'system',
         content:

@@ -1,0 +1,471 @@
+[
+  {
+    "id": "gd-001",
+    "question": "What are Amazon's main risk factors according to the 10-K?",
+    "ground_truth": "Amazon's main risk factors include intense competition, regulatory and legal risks, data privacy concerns, cybersecurity threats, dependency on third-party sellers, and macroeconomic headwinds.",
+    "expected_tool": "vector_store",
+    "expected_collection": "sec_filings",
+    "ticker": "AMZN",
+    "expected_keywords": ["competition", "regulatory", "cybersecurity", "risk"]
+  },
+  {
+    "id": "gd-002",
+    "question": "What was Apple's total revenue in fiscal year 2024?",
+    "ground_truth": "Apple reported total net sales of $391.0 billion in fiscal year 2024, compared to $383.3 billion in fiscal year 2023.",
+    "expected_tool": "get_fundamentals",
+    "expected_collection": null,
+    "ticker": "AAPL",
+    "expected_keywords": ["revenue", "391", "billion", "2024"]
+  },
+  {
+    "id": "gd-003",
+    "question": "What are the key growth strategies mentioned in Microsoft's 10-K?",
+    "ground_truth": "Microsoft's growth strategies include expanding Azure cloud services, growing the Microsoft 365 ecosystem, advancing AI through Copilot integrations, and scaling LinkedIn and gaming divisions.",
+    "expected_tool": "vector_store",
+    "expected_collection": "sec_filings",
+    "ticker": "MSFT",
+    "expected_keywords": ["Azure", "cloud", "AI", "growth", "Microsoft 365"]
+  },
+  {
+    "id": "gd-004",
+    "question": "What is NVIDIA's current market capitalisation and P/E ratio?",
+    "ground_truth": "NVIDIA's market capitalisation and P/E ratio change with market conditions. The agent should retrieve live data via get_company_financials.",
+    "expected_tool": "get_company_financials",
+    "expected_collection": null,
+    "ticker": "NVDA",
+    "expected_keywords": ["market cap", "P/E", "NVIDIA"]
+  },
+  {
+    "id": "gd-005",
+    "question": "What recent news sentiment surrounds Tesla?",
+    "ground_truth": "Recent Tesla news includes coverage of vehicle deliveries, FSD (Full Self-Driving) updates, CEO commentary, and competitive pressures in the EV market.",
+    "expected_tool": "vector_store",
+    "expected_collection": "news",
+    "ticker": "TSLA",
+    "expected_keywords": ["Tesla", "EV", "delivery", "FSD", "news"]
+  },
+  {
+    "id": "gd-006",
+    "question": "Show me Apple's historical stock price for the last year",
+    "ground_truth": "The agent should use get_price_history with period=1y to retrieve AAPL OHLCV data and present it as a chart.",
+    "expected_tool": "get_price_history",
+    "expected_collection": null,
+    "ticker": "AAPL",
+    "expected_keywords": ["price", "chart", "AAPL", "history"]
+  },
+  {
+    "id": "gd-007",
+    "question": "What capital expenditures did Amazon report in its 10-K?",
+    "ground_truth": "Amazon's 10-K discloses significant capital expenditures for fulfilment centres, data centres, and AWS infrastructure.",
+    "expected_tool": "vector_store",
+    "expected_collection": "sec_filings",
+    "ticker": "AMZN",
+    "expected_keywords": ["capex", "capital expenditure", "infrastructure", "AWS"]
+  },
+  {
+    "id": "gd-008",
+    "question": "What is my current portfolio balance?",
+    "ground_truth": "The agent should call get_portfolio to retrieve the current paper-trading account balance, positions, and buying power.",
+    "expected_tool": "get_portfolio",
+    "expected_collection": null,
+    "ticker": null,
+    "expected_keywords": ["portfolio", "balance", "positions", "buying power"]
+  },
+  {
+    "id": "gd-009",
+    "question": "What does Google's 10-K say about their AI strategy?",
+    "ground_truth": "Google's 10-K discusses investments in generative AI through Gemini, AI integration across Search, Cloud, and advertising products, and R&D spending on AI infrastructure.",
+    "expected_tool": "vector_store",
+    "expected_collection": "sec_filings",
+    "ticker": "GOOGL",
+    "expected_keywords": ["AI", "Gemini", "Google", "strategy", "cloud"]
+  },
+  {
+    "id": "gd-010",
+    "question": "What are the recent news themes for Apple?",
+    "ground_truth": "Recent AAPL news themes include iPhone sales, Vision Pro launch reception, services revenue growth, antitrust concerns, and AI feature announcements.",
+    "expected_tool": "vector_store",
+    "expected_collection": "news",
+    "ticker": "AAPL",
+    "expected_keywords": ["Apple", "iPhone", "services", "news"]
+  },
+  {
+    "id": "gd-011",
+    "question": "What is Microsoft's annual net income for the last 4 years?",
+    "ground_truth": "Microsoft's annual net income has grown significantly over the last 4 fiscal years, driven by Azure and productivity software. The exact figures should be retrieved via get_fundamentals.",
+    "expected_tool": "get_fundamentals",
+    "expected_collection": null,
+    "ticker": "MSFT",
+    "expected_keywords": ["net income", "annual", "Microsoft", "FY"]
+  },
+  {
+    "id": "gd-012",
+    "question": "Summarise NVDA's business model from its 10-K",
+    "ground_truth": "NVIDIA designs and sells GPUs and system-on-chip units primarily for gaming, data centres, and AI computing. The 10-K describes its two main segments: Compute & Networking and Graphics.",
+    "expected_tool": "vector_store",
+    "expected_collection": "sec_filings",
+    "ticker": "NVDA",
+    "expected_keywords": ["GPU", "data centre", "AI", "gaming", "NVIDIA"]
+  },
+
+  {
+    "id": "gd-013",
+    "question": "What is Apple's current price-to-book ratio?",
+    "ground_truth": "Apple's price-to-book ratio is a live valuation metric available via get_company_financials. It reflects the market premium over Apple's book value.",
+    "expected_tool": "get_company_financials",
+    "expected_collection": null,
+    "ticker": "AAPL",
+    "expected_keywords": ["price-to-book", "P/B", "Apple", "valuation"]
+  },
+  {
+    "id": "gd-014",
+    "question": "What is Tesla's 52-week high and low?",
+    "ground_truth": "Tesla's 52-week high and low are live market data points retrieved via get_company_financials.",
+    "expected_tool": "get_company_financials",
+    "expected_collection": null,
+    "ticker": "TSLA",
+    "expected_keywords": ["52-week", "high", "low", "Tesla"]
+  },
+  {
+    "id": "gd-015",
+    "question": "What is Amazon's analyst recommendation and target price?",
+    "ground_truth": "Amazon's analyst consensus recommendation and target mean price are live data points retrieved via get_company_financials.",
+    "expected_tool": "get_company_financials",
+    "expected_collection": null,
+    "ticker": "AMZN",
+    "expected_keywords": ["analyst", "recommendation", "target", "price", "Amazon"]
+  },
+  {
+    "id": "gd-016",
+    "question": "What is Microsoft's dividend yield?",
+    "ground_truth": "Microsoft pays a dividend. The current dividend yield is a live metric available via get_company_financials.",
+    "expected_tool": "get_company_financials",
+    "expected_collection": null,
+    "ticker": "MSFT",
+    "expected_keywords": ["dividend", "yield", "Microsoft"]
+  },
+  {
+    "id": "gd-017",
+    "question": "What is Google's EBITDA and free cash flow?",
+    "ground_truth": "Google's EBITDA and free cash flow are live financial metrics available via get_company_financials, reflecting Alphabet's operational profitability.",
+    "expected_tool": "get_company_financials",
+    "expected_collection": null,
+    "ticker": "GOOGL",
+    "expected_keywords": ["EBITDA", "free cash flow", "Google", "Alphabet"]
+  },
+  {
+    "id": "gd-018",
+    "question": "Show me NVIDIA's stock price history for the last 6 months",
+    "ground_truth": "The agent should call get_price_history with ticker=NVDA and period=6mo to retrieve weekly OHLCV data for charting.",
+    "expected_tool": "get_price_history",
+    "expected_collection": null,
+    "ticker": "NVDA",
+    "expected_keywords": ["price", "history", "NVDA", "6 months", "chart"]
+  },
+  {
+    "id": "gd-019",
+    "question": "What has Tesla's stock price done over the last 5 years?",
+    "ground_truth": "Tesla's 5-year price history can be retrieved via get_price_history with period=5y, showing monthly bars reflecting volatile growth.",
+    "expected_tool": "get_price_history",
+    "expected_collection": null,
+    "ticker": "TSLA",
+    "expected_keywords": ["price", "5 years", "Tesla", "history", "chart"]
+  },
+  {
+    "id": "gd-020",
+    "question": "Give me Amazon's price chart for the last 3 months",
+    "ground_truth": "The agent should call get_price_history with ticker=AMZN and period=3mo to retrieve daily OHLCV price data.",
+    "expected_tool": "get_price_history",
+    "expected_collection": null,
+    "ticker": "AMZN",
+    "expected_keywords": ["price", "3 months", "Amazon", "chart", "OHLCV"]
+  },
+  {
+    "id": "gd-021",
+    "question": "What is Apple's quarterly income statement for the last 5 quarters?",
+    "ground_truth": "Apple's quarterly income statement shows revenue, gross profit, operating income, and net income for the last 5 quarters, retrievable via get_fundamentals with frequency=quarterly.",
+    "expected_tool": "get_fundamentals",
+    "expected_collection": null,
+    "ticker": "AAPL",
+    "expected_keywords": ["quarterly", "income", "revenue", "net income", "Apple"]
+  },
+  {
+    "id": "gd-022",
+    "question": "What does Tesla's balance sheet look like annually?",
+    "ground_truth": "Tesla's annual balance sheet shows total assets, liabilities, shareholders' equity, cash, and debt levels over the last 4 fiscal years, retrievable via get_fundamentals with statement=balance.",
+    "expected_tool": "get_fundamentals",
+    "expected_collection": null,
+    "ticker": "TSLA",
+    "expected_keywords": ["balance sheet", "assets", "liabilities", "equity", "Tesla"]
+  },
+  {
+    "id": "gd-023",
+    "question": "Show me Microsoft's annual cash flow statement",
+    "ground_truth": "Microsoft's annual cash flow statement includes operating, investing, and financing cash flows over the last 4 fiscal years, retrievable via get_fundamentals with statement=cashflow.",
+    "expected_tool": "get_fundamentals",
+    "expected_collection": null,
+    "ticker": "MSFT",
+    "expected_keywords": ["cash flow", "operating", "investing", "financing", "Microsoft"]
+  },
+  {
+    "id": "gd-024",
+    "question": "What is Google's quarterly revenue trend?",
+    "ground_truth": "Google's quarterly revenue trend is available via get_fundamentals with ticker=GOOGL, statement=income, frequency=quarterly, showing advertising and cloud revenue momentum.",
+    "expected_tool": "get_fundamentals",
+    "expected_collection": null,
+    "ticker": "GOOGL",
+    "expected_keywords": ["quarterly", "revenue", "Google", "trend", "advertising"]
+  },
+  {
+    "id": "gd-025",
+    "question": "Buy 10 shares of Apple at market price",
+    "ground_truth": "The agent should call place_order with ticker=AAPL, side=buy, order_type=market, qty=10 to submit a paper-trading market order.",
+    "expected_tool": "place_order",
+    "expected_collection": null,
+    "ticker": "AAPL",
+    "expected_keywords": ["buy", "order", "market", "AAPL", "shares"]
+  },
+  {
+    "id": "gd-026",
+    "question": "Sell 5 shares of Tesla",
+    "ground_truth": "The agent should call place_order with ticker=TSLA, side=sell, order_type=market, qty=5 to submit a paper-trading sell order.",
+    "expected_tool": "place_order",
+    "expected_collection": null,
+    "ticker": "TSLA",
+    "expected_keywords": ["sell", "order", "TSLA", "shares", "market"]
+  },
+  {
+    "id": "gd-027",
+    "question": "Place a limit buy order for 3 shares of NVIDIA at $800",
+    "ground_truth": "The agent should call place_order with ticker=NVDA, side=buy, order_type=limit, qty=3, limit_price=800 to submit a paper-trading limit order.",
+    "expected_tool": "place_order",
+    "expected_collection": null,
+    "ticker": "NVDA",
+    "expected_keywords": ["limit", "buy", "order", "NVDA", "800"]
+  },
+  {
+    "id": "gd-028",
+    "question": "Invest $500 in Amazon stock",
+    "ground_truth": "The agent should call place_order with ticker=AMZN, side=buy, order_type=market, notional=500 to submit a dollar-amount paper-trading order.",
+    "expected_tool": "place_order",
+    "expected_collection": null,
+    "ticker": "AMZN",
+    "expected_keywords": ["buy", "notional", "500", "Amazon", "order"]
+  },
+  {
+    "id": "gd-029",
+    "question": "Place a stop-loss sell order for Microsoft at $380",
+    "ground_truth": "The agent should call place_order with ticker=MSFT, side=sell, order_type=stop, stop_price=380 to create a paper-trading stop order.",
+    "expected_tool": "place_order",
+    "expected_collection": null,
+    "ticker": "MSFT",
+    "expected_keywords": ["stop", "sell", "order", "Microsoft", "380"]
+  },
+  {
+    "id": "gd-030",
+    "question": "Show me all my open positions and unrealised profit/loss",
+    "ground_truth": "The agent should call get_portfolio to retrieve all open positions with their current prices, quantities, and unrealised P&L.",
+    "expected_tool": "get_portfolio",
+    "expected_collection": null,
+    "ticker": null,
+    "expected_keywords": ["positions", "unrealised", "P&L", "profit", "portfolio"]
+  },
+  {
+    "id": "gd-031",
+    "question": "How much cash and buying power do I have available?",
+    "ground_truth": "The agent should call get_portfolio to retrieve the account's available cash and buying power from the Alpaca paper-trading account.",
+    "expected_tool": "get_portfolio",
+    "expected_collection": null,
+    "ticker": null,
+    "expected_keywords": ["cash", "buying power", "available", "account"]
+  },
+  {
+    "id": "gd-032",
+    "question": "Do I have any open orders?",
+    "ground_truth": "The agent should call get_portfolio to retrieve the list of open (pending) orders in the paper-trading account.",
+    "expected_tool": "get_portfolio",
+    "expected_collection": null,
+    "ticker": null,
+    "expected_keywords": ["open orders", "pending", "portfolio", "orders"]
+  },
+  {
+    "id": "gd-033",
+    "question": "What is my total portfolio value including unrealised gains?",
+    "ground_truth": "The agent should call get_portfolio to retrieve total portfolio value, equity, and aggregate unrealised P&L from the Alpaca paper account.",
+    "expected_tool": "get_portfolio",
+    "expected_collection": null,
+    "ticker": null,
+    "expected_keywords": ["portfolio value", "equity", "unrealised", "total"]
+  },
+  {
+    "id": "gd-034",
+    "question": "What does Amazon's 10-K say about AWS revenue growth?",
+    "ground_truth": "Amazon's 10-K discusses AWS as its most profitable segment, with strong revenue growth driven by enterprise cloud adoption, AI services, and geographic expansion.",
+    "expected_tool": "vector_store",
+    "expected_collection": "sec_filings",
+    "ticker": "AMZN",
+    "expected_keywords": ["AWS", "revenue", "growth", "cloud", "segment"]
+  },
+  {
+    "id": "gd-035",
+    "question": "What does Tesla's 10-K say about manufacturing risks?",
+    "ground_truth": "Tesla's 10-K describes manufacturing risks including production ramp challenges at Gigafactories, supply chain dependencies for batteries and semiconductors, and quality control risks.",
+    "expected_tool": "vector_store",
+    "expected_collection": "sec_filings",
+    "ticker": "TSLA",
+    "expected_keywords": ["manufacturing", "Gigafactory", "supply chain", "risk", "battery"]
+  },
+  {
+    "id": "gd-036",
+    "question": "What does NVIDIA's 10-K disclose about export control risks?",
+    "ground_truth": "NVIDIA's 10-K discloses material risks from US export controls on advanced chips to China, including restrictions on A100 and H100 GPU exports, which could materially impact revenue.",
+    "expected_tool": "vector_store",
+    "expected_collection": "sec_filings",
+    "ticker": "NVDA",
+    "expected_keywords": ["export", "control", "China", "GPU", "risk", "H100"]
+  },
+  {
+    "id": "gd-037",
+    "question": "What are Apple's revenue recognition policies in its 10-K?",
+    "ground_truth": "Apple's 10-K describes revenue recognition under ASC 606, with distinct policies for hardware (point of sale), services (over time), and bundled products (allocated transaction price).",
+    "expected_tool": "vector_store",
+    "expected_collection": "sec_filings",
+    "ticker": "AAPL",
+    "expected_keywords": ["revenue recognition", "ASC 606", "Apple", "services", "hardware"]
+  },
+  {
+    "id": "gd-038",
+    "question": "What does Microsoft's 10-K say about cybersecurity risks?",
+    "ground_truth": "Microsoft's 10-K discusses material cybersecurity risks including nation-state attacks, supply chain vulnerabilities, and the risk of breaches affecting Azure and Microsoft 365 customers.",
+    "expected_tool": "vector_store",
+    "expected_collection": "sec_filings",
+    "ticker": "MSFT",
+    "expected_keywords": ["cybersecurity", "attack", "breach", "Azure", "Microsoft"]
+  },
+  {
+    "id": "gd-039",
+    "question": "What is the latest news about NVIDIA's AI chip demand?",
+    "ground_truth": "Recent NVIDIA news covers record demand for H100 and B200 GPUs from hyperscalers and AI startups, supply constraints, and strong data centre revenue growth.",
+    "expected_tool": "vector_store",
+    "expected_collection": "news",
+    "ticker": "NVDA",
+    "expected_keywords": ["NVIDIA", "AI", "chip", "demand", "GPU", "data centre"]
+  },
+  {
+    "id": "gd-040",
+    "question": "What is the recent news sentiment around Microsoft and OpenAI?",
+    "ground_truth": "Recent news covers Microsoft's deepening investment in OpenAI, Copilot integration across Office products, competitive pressure from Google Gemini, and regulatory scrutiny.",
+    "expected_tool": "vector_store",
+    "expected_collection": "news",
+    "ticker": "MSFT",
+    "expected_keywords": ["Microsoft", "OpenAI", "Copilot", "AI", "news"]
+  },
+  {
+    "id": "gd-041",
+    "question": "What recent news has affected Amazon's stock price?",
+    "ground_truth": "Recent Amazon news includes AWS growth beats, advertising segment expansion, Prime membership milestones, and logistics automation investments.",
+    "expected_tool": "vector_store",
+    "expected_collection": "news",
+    "ticker": "AMZN",
+    "expected_keywords": ["Amazon", "AWS", "advertising", "Prime", "stock", "news"]
+  },
+  {
+    "id": "gd-042",
+    "question": "What are analysts saying about Google's earnings?",
+    "ground_truth": "Recent analyst commentary on Google covers Search ad resilience, YouTube growth, Google Cloud acceleration, and AI monetisation through Gemini.",
+    "expected_tool": "vector_store",
+    "expected_collection": "news",
+    "ticker": "GOOGL",
+    "expected_keywords": ["Google", "analyst", "earnings", "Search", "Cloud", "Gemini"]
+  },
+  {
+    "id": "gd-043",
+    "question": "What is NVIDIA's current EPS and forward P/E?",
+    "ground_truth": "NVIDIA's trailing EPS and forward P/E ratio are live metrics available via get_company_financials, reflecting the market's premium for AI-driven growth.",
+    "expected_tool": "get_company_financials",
+    "expected_collection": null,
+    "ticker": "NVDA",
+    "expected_keywords": ["EPS", "forward P/E", "NVIDIA", "earnings per share"]
+  },
+  {
+    "id": "gd-044",
+    "question": "What sector and industry is Tesla classified in?",
+    "ground_truth": "Tesla is classified in the Consumer Cyclical sector and Auto Manufacturers industry, retrievable via get_company_financials.",
+    "expected_tool": "get_company_financials",
+    "expected_collection": null,
+    "ticker": "TSLA",
+    "expected_keywords": ["sector", "industry", "Tesla", "Consumer Cyclical", "Auto"]
+  },
+  {
+    "id": "gd-045",
+    "question": "What is Apple's total debt and cash position?",
+    "ground_truth": "Apple's total debt and total cash are live balance-sheet metrics available via get_company_financials, reflecting Apple's net cash position.",
+    "expected_tool": "get_company_financials",
+    "expected_collection": null,
+    "ticker": "AAPL",
+    "expected_keywords": ["total debt", "cash", "Apple", "balance sheet", "net cash"]
+  },
+  {
+    "id": "gd-046",
+    "question": "Show me the 2-year price history for Microsoft",
+    "ground_truth": "The agent should call get_price_history with ticker=MSFT and period=2y to retrieve monthly OHLCV data for a 2-year chart.",
+    "expected_tool": "get_price_history",
+    "expected_collection": null,
+    "ticker": "MSFT",
+    "expected_keywords": ["price", "2 years", "Microsoft", "history", "MSFT"]
+  },
+  {
+    "id": "gd-047",
+    "question": "Give me a 1-month daily price chart for Google",
+    "ground_truth": "The agent should call get_price_history with ticker=GOOGL and period=1mo to retrieve daily OHLCV bars.",
+    "expected_tool": "get_price_history",
+    "expected_collection": null,
+    "ticker": "GOOGL",
+    "expected_keywords": ["price", "1 month", "Google", "daily", "chart"]
+  },
+  {
+    "id": "gd-048",
+    "question": "What is Amazon's quarterly cash flow for the last 5 quarters?",
+    "ground_truth": "Amazon's quarterly cash flow statement is retrievable via get_fundamentals with ticker=AMZN, statement=cashflow, frequency=quarterly.",
+    "expected_tool": "get_fundamentals",
+    "expected_collection": null,
+    "ticker": "AMZN",
+    "expected_keywords": ["quarterly", "cash flow", "Amazon", "operating", "investing"]
+  },
+  {
+    "id": "gd-049",
+    "question": "Show me Tesla's annual income statement for the last 4 years",
+    "ground_truth": "Tesla's annual income statement shows revenue, gross profit, operating expenses, and net income over the last 4 fiscal years, retrievable via get_fundamentals with statement=income, frequency=annual.",
+    "expected_tool": "get_fundamentals",
+    "expected_collection": null,
+    "ticker": "TSLA",
+    "expected_keywords": ["annual", "income", "revenue", "net income", "Tesla"]
+  },
+  {
+    "id": "gd-050",
+    "question": "What is NVIDIA's quarterly balance sheet?",
+    "ground_truth": "NVIDIA's quarterly balance sheet is retrievable via get_fundamentals with ticker=NVDA, statement=balance, frequency=quarterly, showing assets, liabilities, and equity.",
+    "expected_tool": "get_fundamentals",
+    "expected_collection": null,
+    "ticker": "NVDA",
+    "expected_keywords": ["quarterly", "balance sheet", "NVIDIA", "assets", "liabilities"]
+  },
+  {
+    "id": "gd-051",
+    "question": "Buy $1000 worth of Tesla stock",
+    "ground_truth": "The agent should call place_order with ticker=TSLA, side=buy, order_type=market, notional=1000 to submit a dollar-amount paper-trading market order.",
+    "expected_tool": "place_order",
+    "expected_collection": null,
+    "ticker": "TSLA",
+    "expected_keywords": ["buy", "notional", "1000", "Tesla", "market order"]
+  },
+  {
+    "id": "gd-052",
+    "question": "Place a limit sell order for 2 shares of Apple at $230",
+    "ground_truth": "The agent should call place_order with ticker=AAPL, side=sell, order_type=limit, qty=2, limit_price=230.",
+    "expected_tool": "place_order",
+    "expected_collection": null,
+    "ticker": "AAPL",
+    "expected_keywords": ["limit", "sell", "order", "Apple", "230"]
+  }
+]
