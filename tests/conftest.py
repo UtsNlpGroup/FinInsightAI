@@ -11,10 +11,17 @@ Path strategy:
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from dotenv import load_dotenv
+
+# Load test environment variables before any test collection happens.
+# tests/.env.test holds real credentials for live/RAG tests so you never
+# need to manually `export` them in the shell.
+load_dotenv(Path(__file__).parent / ".env", override=False)
 
 # ── FastAPI / backend imports ─────────────────────────────────────────────────
 

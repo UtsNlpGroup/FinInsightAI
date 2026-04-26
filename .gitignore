@@ -60,3 +60,4 @@ coverage/
 
 # Local ChromaDB snapshot (Aby-RAG uses remote Chroma; do not commit DB files)
 Aby-RAG/chroma_db/
+tests/.env

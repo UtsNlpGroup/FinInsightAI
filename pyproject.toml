@@ -1,35 +1,65 @@
 [project]
 name = "nlp-at2"
 version = "0.1.0"
-description = "Add your description here"
+description = "FinSight AI: Decision support system for financial document analysis"
 readme = "README.md"
 requires-python = ">=3.13"
+
 dependencies = [
-    "bs4>=0.0.2",
-    "chromadb>=1.5.5",
-    "dotenv>=0.9.9",
-    "sec-edgar-downloader>=5.0.2",
-    "ipykernel>=7.2.0",
-    "ipywidgets>=8.1.8",
-    "jupyterlab>=4.5.6",
-    "langchain>=1.2.15",
-    "langchain-chroma>=1.1.0",
-    "langchain-core>=1.2.26",
-    "langchain-text-splitters>=1.1.1",
-    "matplotlib>=3.10.8",
-    "nltk>=3.9.4",
-    "notebook>=7.5.5",
+    # Core Data & Analysis
     "numpy>=2.4.4",
     "pandas>=3.0.2",
-    "pysbd>=0.3.4",
-    "requests>=2.33.1",
-    "scikit-learn>=1.8.0",
-    "seaborn>=0.13.2",
-    "tokenizers>=0.22.2",
-    "torch>=2.11.0",
-    "tqdm>=4.67.3",
-    "transformers>=5.5.0",
+    "openpyxl>=3.1.5",
+    
+    # Financial & SEC Data Ingestion
     "yfinance>=1.2.0",
+    "sec-edgar-downloader>=5.1.0",
+    "requests>=2.33.1",
+    
+    # NLP & Text Processing
+    "langchain>=1.2.15",
+    "langchain-core>=1.3.2",
+    "langchain-text-splitters>=1.1.1",
+    "nltk>=3.9.4",
+    "pysbd>=0.3.4",
+    "tokenizers>=0.22.2",
+    "bs4>=0.0.2",
+    "beautifulsoup4>=4.14.3",
+    "tqdm>=4.67.3",
+    "openai>=2.32.0",
+    
+    # Vector Database & RAG
+    "chromadb>=1.5.5",
+    "langchain-chroma>=1.1.0",
+    "langchain-mcp-adapters", 
+    "ragas>=0.4.3",
+    "langchain-openai>=1.2.1",
+    "langchain-community>=0.4.1",
+    
+    # Backend, Database & API
+    "fastapi>=0.136.1",
+    "uvicorn[standard]>=0.43.0",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.13.1",
+    "asyncpg>=0.31.0",
+    "python-dotenv>=1.2.2",
+    
+    # Visualization & UI
+    "matplotlib>=3.10.8",
+    "seaborn>=0.13.2",
+    "ipywidgets>=8.1.8",
+    "ipykernel>=7.2.0",
+    "jupyterlab>=4.5.6",
+    "notebook>=7.5.5",
+
+    # Testing & Quality Assurance (Now Always Available)
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.3.0",
+    "pytest-cov>=7.1.0",
+    "pytest-mock>=3.15.1",
+    "pytest-timeout>=2.4.0",
+    "httpx>=0.28.1",
+    "respx>=0.23.1",
 ]
 
 [tool.pytest.ini_options]
@@ -38,14 +68,12 @@ pythonpath = ["backend", "RAG-Ingestion"]
 asyncio_mode = "auto"
 timeout = 120
 markers = [
-    "unit: pure unit tests, no I/O",
-    "integration: wired components with mocked external services",
-    "api: FastAPI contract tests via TestClient",
-    "rag: RAG retrieval quality and RAGAS evaluation tests",
-    "performance: response-time and throughput tests",
-    "ingestion: RAG ingestion pipeline tests",
-    "e2e: full-stack end-to-end tests (requires running stack)",
-    "live: tests that call real external APIs (OpenAI, Chroma, Alpaca)",
+    "unit: Pure logic tests with no I/O",
+    "integration: Wired components with mocked external services",
+    "api: FastAPI contract and endpoint tests",
+    "rag: Retrieval quality and RAGAS evaluation",
+    "ingestion: Data pipeline and SEC processing tests",
+    "live: Tests requiring real API keys (OpenAI, etc.)",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",
