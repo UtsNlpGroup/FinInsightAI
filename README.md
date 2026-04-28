@@ -1,8 +1,28 @@
-# FinsightAI
+# 📊 **FinsightAI**
 
 FinsightAI is an AI-powered financial insights platform built as a full-stack, containerised application. It combines a conversational React frontend, a FastAPI backend hosting a LangChain ReAct agent, a FastMCP tool server, and a remote ChromaDB vector store to deliver natural-language financial analysis backed by live market data and Retrieval-Augmented Generation (RAG) over SEC 10-K filings and financial news.
 
-**Live demo (frontend only):** [https://utsnlpgroup.github.io/FinInsightAI/](https://utsnlpgroup.github.io/FinInsightAI/)
+
+<div align="center">
+
+<img src="https://github.com/user-attachments/assets/fc1266c0-6da9-4a39-a828-40839d1e4cb6" width="100%" alt="System Dashboard Hero" style="border-radius: 10px; border: 1px solid #e1e4e8;" />
+
+<br/>
+
+<table border="0">
+  <tr>
+    <td width="50%"><img src="https://github.com/user-attachments/assets/3ba99227-b389-436d-80c1-a39bb781c1e1" alt="Sub-view 1" style="border-radius: 8px;"/></td>
+    <td width="50%"><img src="https://github.com/user-attachments/assets/717b44e0-44de-4811-bf6c-834ff4fdbaa7" alt="Sub-view 2" style="border-radius: 8px;"/></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="https://github.com/user-attachments/assets/29284ad8-58f6-47ca-ae7d-3ea603d6c244" alt="Sub-view 3" style="border-radius: 8px;"/></td>
+    <td width="50%"><img src="https://github.com/user-attachments/assets/76b14acb-8c48-4457-9084-532230f55676" alt="Sub-view 4" style="border-radius: 8px;"/></td>
+  </tr>
+</table>
+
+</div>
+
+
 
 ---
 
@@ -25,25 +45,7 @@ FinsightAI is an AI-powered financial insights platform built as a full-stack, c
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                           Docker network                              │
-│                                                                       │
-│  ┌──────────┐    HTTP     ┌───────────────┐    HTTP     ┌──────────┐  │
-│  │ frontend │ ──────────► │   backend     │ ──────────► │   MCP    │  │
-│  │  :3000   │            │    :8001      │            │  :8080   │  │
-│  │  Nginx   │            │ FastAPI +     │            │ FastMCP  │  │
-│  └──────────┘            │ LangChain     │            │ 6 tools  │  │
-│                          │ ReAct agent   │            └────┬─────┘  │
-│                          └───────────────┘                 │        │
-│                                                            │        │
-│                                              ┌─────────────▼──────┐ │
-│                                              │  ChromaDB (remote) │ │
-│                                              │  news_openai       │ │
-│                                              │  sec_filings_openai│ │
-│                                              └────────────────────┘ │
-└──────────────────────────────────────────────────────────────────────┘
-```
+<img width="2816" height="1536" alt="Gemini_Generated_Image_8otnjj8otnjj8otn" src="https://github.com/user-attachments/assets/5abd9797-f665-464a-97d1-39a1f23adaee" />
 
 | Service | Technology | Host port |
 |---|---|---|
@@ -162,7 +164,7 @@ FinsightAI uses distinct models for each role — inference, embedding, and sent
 
 | Model | Role | Notes |
 |---|---|---|
-| **OpenAI GPT-4.1** | Production agent LLM | Drives the LangChain ReAct agent for all user-facing queries. Configured via `OPENAI_API_KEY` + `LLM_MODEL` env var (default `gpt-4.1`). Used for tool selection, multi-step reasoning, and final answer generation. |
+| **OpenAI GPT-4o-mini**| Production agent LLM | Drives the LangChain ReAct agent for all user-facing queries. Configured via `OPENAI_API_KEY` + `LLM_MODEL` env var. Used for tool selection, multi-step reasoning, and final answer generation. |
 | **OpenAI GPT-4o-mini** | RAG evaluation judge | Used exclusively by the RAGAS evaluation suite (`test_ragas_evaluation.py`) as the judge LLM for faithfulness and answer-relevancy scoring. Chosen for lower evaluation cost while retaining sufficient reasoning quality. |
 
 ### Embeddings
@@ -170,7 +172,7 @@ FinsightAI uses distinct models for each role — inference, embedding, and sent
 | Model | Role | Collection | Notes |
 |---|---|---|---|
 | **OpenAI `text-embedding-3-small`** | Primary / production embeddings | `sec_filings_openai`, `news_openai` | Generates 1 536-dimension embeddings via the OpenAI API. Used for all production retrieval queries and for the `vector_store` MCP tool in the default configuration. Achieves 100% cosine-similarity pass-rate on the golden dataset. |
-| **Chroma default (`all-MiniLM-L6-v2`)** | Secondary / offline embeddings | `sec_filings_chroma`, `news_chroma` | 384-dimension sentence-transformer model bundled with ChromaDB. Runs locally with no API key required. Used as a fallback when the OpenAI API is unavailable and as the baseline in embedding-quality comparisons. Achieves 87.5% cosine-similarity pass-rate. |
+| **Hugging Face open-source model (`all-MiniLM-L6-v2`)** | Secondary / offline embeddings | `sec_filings_chroma`, `news_chroma` | 384-dimension sentence-transformer model bundled with ChromaDB. Runs locally with no API key required. Used as a fallback when the OpenAI API is unavailable and as the baseline in embedding-quality comparisons. Achieves 87.5% cosine-similarity pass-rate. |
 | **OpenAI `text-embedding-3-small`** | RAGAS evaluation embeddings | — | Also used inside the RAGAS framework itself for the answer-relevancy metric (embeds synthetic questions to measure alignment with the original query). |
 
 ### Sentiment (NLP)
@@ -298,7 +300,7 @@ ALPACA_API_KEY=<alpaca-paper-key>
 ALPACA_SECRET_KEY=<alpaca-paper-secret>
 
 # LLM configuration (optional – shown with defaults)
-LLM_MODEL=openai:gpt-4.1
+LLM_MODEL=openai:GPT-4o-mini
 LLM_TEMPERATURE=0.0
 LLM_MAX_TOKENS=4096
 AGENT_MAX_ITERATIONS=10
