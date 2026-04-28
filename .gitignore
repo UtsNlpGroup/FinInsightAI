@@ -18,6 +18,7 @@ pnpm-debug.log*
 .env
 .env.*
 !.env.example
+notebooks/.env
 
 # OS files
 .DS_Store
@@ -56,3 +57,7 @@ env/
 # Coverage
 coverage/
 .nyc_output/
+
+# Local ChromaDB snapshot (Aby-RAG uses remote Chroma; do not commit DB files)
+Aby-RAG/chroma_db/
+tests/.env
