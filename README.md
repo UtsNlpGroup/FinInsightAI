@@ -21,6 +21,18 @@ FinsightAI is an AI-powered financial insights platform built as a full-stack, c
 
 ---
 
+<img width="2816" height="1536" alt="Gemini_Generated_Image_8otnjj8otnjj8otn" src="https://github.com/user-attachments/assets/5abd9797-f665-464a-97d1-39a1f23adaee" /><img width="1393" height="925" alt="Screenshot 2026-04-28 at 8 57 15 PM" src="https://github.com/user-attachments/assets/d414c7d9-7ada-4553-b6d0-6a757e889d25" />
+
+<img width="1463" height="975" alt="Screenshot 2026-04-28 at 8 56 09 PM" src="https://github.com/user-attachments/assets/3ba99227-b389-436d-80c1-a39bb781c1e1" />
+<img width="1473" height="973" alt="Screenshot 2026-04-28 at 8 55 43 PM" src="https://github.com/user-attachments/assets/717b44e0-44de-4811-bf6c-834ff4fdbaa7" />
+
+
+<img width="1475" height="980" alt="Screenshot 2026-04-28 at 8 54 25 PM" src="https://github.com/user-attachments/assets/29284ad8-58f6-47ca-ae7d-3ea603d6c244" />
+
+
+<img width="1469" height="976" alt="Screenshot 2026-04-28 at 8 54 59 PM" src="https://github.com/user-attachments/assets/76b14acb-8c48-4457-9084-532230f55676" />
+
+
 ## Architecture
 
 <img width="2816" height="1536" alt="Gemini_Generated_Image_8otnjj8otnjj8otn" src="https://github.com/user-attachments/assets/5abd9797-f665-464a-97d1-39a1f23adaee" />
