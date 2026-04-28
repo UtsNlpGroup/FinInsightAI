@@ -2,25 +2,6 @@
 
 FinsightAI is an AI-powered financial insights platform built as a full-stack, containerised application. It combines a conversational React frontend, a FastAPI backend hosting a LangChain ReAct agent, a FastMCP tool server, and a remote ChromaDB vector store to deliver natural-language financial analysis backed by live market data and Retrieval-Augmented Generation (RAG) over SEC 10-K filings and financial news.
 
----
-
-## Table of Contents
-
-1. [Architecture](#architecture)
-2. [Project Structure](#project-structure)
-3. [Tech Stack](#tech-stack)
-4. [MCP Tools](#mcp-tools)
-5. [RAG Ingestion Pipeline](#rag-ingestion-pipeline)
-6. [Running the Full Stack with Docker Compose](#running-the-full-stack-with-docker-compose)
-7. [Local Development (without Docker)](#local-development-without-docker)
-8. [Backend API Reference](#backend-api-reference)
-9. [RAG Evaluation Results](#rag-evaluation-results)
-10. [Test Suite](#test-suite)
-11. [Deployment](#deployment)
-12. [License](#license)
-
----
-
 
 <div align="center">
 
@@ -42,19 +23,25 @@ FinsightAI is an AI-powered financial insights platform built as a full-stack, c
 </div>
 
 
-<img width="1464" height="971" alt="Screenshot 2026-04-28 at 8 59 08 PM" src="https://github.com/user-attachments/assets/fc1266c0-6da9-4a39-a828-40839d1e4cb6" />
 
+---
 
+## Table of Contents
 
-<img width="1463" height="975" alt="Screenshot 2026-04-28 at 8 56 09 PM" src="https://github.com/user-attachments/assets/3ba99227-b389-436d-80c1-a39bb781c1e1" />
-<img width="1473" height="973" alt="Screenshot 2026-04-28 at 8 55 43 PM" src="https://github.com/user-attachments/assets/717b44e0-44de-4811-bf6c-834ff4fdbaa7" />
+1. [Architecture](#architecture)
+2. [Project Structure](#project-structure)
+3. [Tech Stack](#tech-stack)
+4. [MCP Tools](#mcp-tools)
+5. [RAG Ingestion Pipeline](#rag-ingestion-pipeline)
+6. [Running the Full Stack with Docker Compose](#running-the-full-stack-with-docker-compose)
+7. [Local Development (without Docker)](#local-development-without-docker)
+8. [Backend API Reference](#backend-api-reference)
+9. [RAG Evaluation Results](#rag-evaluation-results)
+10. [Test Suite](#test-suite)
+11. [Deployment](#deployment)
+12. [License](#license)
 
-
-<img width="1475" height="980" alt="Screenshot 2026-04-28 at 8 54 25 PM" src="https://github.com/user-attachments/assets/29284ad8-58f6-47ca-ae7d-3ea603d6c244" />
-
-
-<img width="1469" height="976" alt="Screenshot 2026-04-28 at 8 54 59 PM" src="https://github.com/user-attachments/assets/76b14acb-8c48-4457-9084-532230f55676" />
-
+---
 
 ## Architecture
 
