@@ -164,7 +164,7 @@ FinsightAI uses distinct models for each role — inference, embedding, and sent
 
 | Model | Role | Notes |
 |---|---|---|
-| **OpenAI GPT-4.1** | Production agent LLM | Drives the LangChain ReAct agent for all user-facing queries. Configured via `OPENAI_API_KEY` + `LLM_MODEL` env var (default `gpt-4.1`). Used for tool selection, multi-step reasoning, and final answer generation. |
+| **OpenAI GPT-4o-mini**| Production agent LLM | Drives the LangChain ReAct agent for all user-facing queries. Configured via `OPENAI_API_KEY` + `LLM_MODEL` env var. Used for tool selection, multi-step reasoning, and final answer generation. |
 | **OpenAI GPT-4o-mini** | RAG evaluation judge | Used exclusively by the RAGAS evaluation suite (`test_ragas_evaluation.py`) as the judge LLM for faithfulness and answer-relevancy scoring. Chosen for lower evaluation cost while retaining sufficient reasoning quality. |
 
 ### Embeddings
