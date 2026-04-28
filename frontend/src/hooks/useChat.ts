@@ -36,7 +36,7 @@ export interface UseChatOptions {
   currentAsset?: string;
   currentCompanyName?: string;
   /**
-   * Optional LLM model override (full LangChain ID, e.g. "openai:gpt-4.1").
+   * Optional LLM model override (full LangChain ID, e.g. "openai:gpt-4o-mini").
    * When omitted the server default is used.
    */
   model?: string;

@@ -142,7 +142,7 @@ finsightAI/
 | Frontend server | Nginx 1.27 |
 | Backend framework | FastAPI, Uvicorn |
 | AI agent | LangChain ReAct agent (`create_agent`) |
-| LLM | OpenAI GPT-4.1 (configurable) |
+| LLM | OpenAI GPT-4o-mini (configurable) |
 | MCP integration | FastMCP, `langchain-mcp-adapters` |
 | Vector store | ChromaDB (remote HTTP client) |
 | Embeddings | OpenAI `text-embedding-3-small` (primary), Chroma default (`all-MiniLM-L6-v2`) |

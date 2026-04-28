@@ -70,7 +70,7 @@ class ChatRequest(BaseModel):
         default=None,
         description=(
             "Optional LLM model override for this request. "
-            "Must be a full LangChain model ID, e.g. 'openai:gpt-4.1'. "
+            "Must be a full LangChain model ID, e.g. 'openai:gpt-4o-mini'. "
             "When omitted the server default (LLM_MODEL env var) is used."
         ),
     )
@@ -123,8 +123,8 @@ class StreamChunk(BaseModel):
 # ── Health / meta ─────────────────────────────────────────────────────────────
 
 class ModelInfo(BaseModel):
-    id: str        # full LangChain model ID, e.g. "openai:gpt-4.1"
-    label: str     # display name, e.g. "GPT-4.1"
+    id: str        # full LangChain model ID, e.g. "openai:gpt-4o-mini"
+    label: str     # display name, e.g. "GPT-4o-mini"
     is_default: bool = False
 
 

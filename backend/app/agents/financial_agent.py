@@ -9,7 +9,7 @@ Pattern: Factory Method
 
 How it works:
   1. A chat model is initialised via `init_chat_model` with the configured
-     provider/model string (e.g. "openai:gpt-4.1", "openai:gpt-4o").
+     provider/model string (e.g. "openai:gpt-4o-mini", "openai:gpt-4o").
   2. `langchain.agents.create_agent` wraps the model and the MCP tools into a
      ready-to-invoke ReAct agent.  The agent handles the tool-call loop
      internally – no manual graph wiring required.
@@ -242,7 +242,7 @@ class FinancialAgentFactory:
         Args:
             tools: LangChain tools loaded from the FastMCP HTTP server.
             model: Optional full LangChain model ID to override the default
-                   (e.g. "openai:gpt-4.1").  Falls back to ``settings.llm_model``.
+                   (e.g. "openai:gpt-4o-mini").  Falls back to ``settings.llm_model``.
 
         Returns:
             A runnable LangChain agent that supports ``.ainvoke()`` and
