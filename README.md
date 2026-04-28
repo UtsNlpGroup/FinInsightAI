@@ -1,10 +1,9 @@
-<img width="2816" height="1536" alt="Gemini_Generated_Image_8otnjj8otnjj8otn" src="https://github.com/user-attachments/assets/82053ded-4b1c-4059-9f4c-c4042fc80e97" /># FinsightAI
+FinsightAI
 
 FinsightAI is an AI-powered financial insights platform built as a full-stack, containerised application. It combines a conversational React frontend, a FastAPI backend hosting a LangChain ReAct agent, a FastMCP tool server, and a remote ChromaDB vector store to deliver natural-language financial analysis backed by live market data and Retrieval-Augmented Generation (RAG) over SEC 10-K filings and financial news.
 
+
 <img width="2816" height="1536" alt="Gemini_Generated_Image_8otnjj8otnjj8otn" src="https://github.com/user-attachments/assets/5abd9797-f665-464a-97d1-39a1f23adaee" />
-
-
 
 ---
 
