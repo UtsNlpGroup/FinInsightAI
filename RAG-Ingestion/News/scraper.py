@@ -74,7 +74,7 @@ class ArticleScraper:
                 or name_upper in title_text
                 or (
                     (ticker_upper in anchor_zone or name_upper in anchor_zone)
-                    and total_mentions >= 3
+                    and total_mentions >= 1
                 )
             )
 

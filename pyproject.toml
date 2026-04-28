@@ -23,16 +23,21 @@ dependencies = [
     "nltk>=3.9.4",
     "pysbd>=0.3.4",
     "tokenizers>=0.22.2",
+    "tiktoken>=0.7.0",           # Required for OpenAI token counting/splitting
     "bs4>=0.0.2",
     "beautifulsoup4>=4.14.3",
     "tqdm>=4.67.3",
     "openai>=2.32.0",
+    "torch>=2.0.0",
+    "transformers>=4.40.0",
+    "sentence-transformers>=2.2.2",
     
     # Vector Database & RAG
     "chromadb>=1.5.5",
     "langchain-chroma>=1.1.0",
     "langchain-mcp-adapters", 
     "ragas>=0.4.3",
+    "datasets>=2.18.0",          # Required for Ragas Evaluation (Hugging Face Datasets)
     "langchain-openai>=1.2.1",
     "langchain-community>=0.4.1",
     
@@ -43,8 +48,10 @@ dependencies = [
     "pydantic-settings>=2.13.1",
     "asyncpg>=0.31.0",
     "python-dotenv>=1.2.2",
+    "python-multipart>=0.0.9",   # Required for FastAPI form/file handling
     
     # Visualization & UI
+    "streamlit>=1.32.0",         # Added for your FinSight AI frontend
     "matplotlib>=3.10.8",
     "seaborn>=0.13.2",
     "ipywidgets>=8.1.8",
@@ -52,7 +59,7 @@ dependencies = [
     "jupyterlab>=4.5.6",
     "notebook>=7.5.5",
 
-    # Testing & Quality Assurance (Now Always Available)
+    # Testing & Quality Assurance
     "pytest>=9.0.3",
     "pytest-asyncio>=1.3.0",
     "pytest-cov>=7.1.0",

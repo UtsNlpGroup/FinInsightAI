@@ -1,3 +1,4 @@
+import os
 import time
 
 import chromadb
@@ -17,6 +18,10 @@ class NewsIngestor(BaseIngestor):
     Orchestrates the full news ingestion pipeline for one ticker:
       Discover → Scrape → Tier text → FinBERT sentiment → Chunk → Upload to Chroma.
 
+    The same chunks are written to two collections:
+      - news_chroma  →  DefaultEmbeddingFunction (all-MiniLM-L6-v2)
+      - news_openai  →  OpenAIEmbeddingFunction  (text-embedding-3-small)
+
     Tiering strategy:
       - high:   Full scraped article text
       - medium: Yahoo summary/description
@@ -28,13 +33,15 @@ class NewsIngestor(BaseIngestor):
       sentiment_negative, sentiment_neutral
     as metadata on every chunk belonging to that article.
 
-    The skip-if-seen guard queries the collection for the article's
-    `original_uuid` before processing, ensuring idempotent runs.
+    The skip-if-seen guard checks both collections before processing; an article
+    is skipped only when it already exists in both, so partial failures from a
+    previous run are automatically healed on the next run.
     """
 
     def __init__(
         self,
-        collection_name: str = cfg.DEFAULT_NEWS_COLLECTION,
+        chroma_collection_name: str = cfg.DEFAULT_NEWS_COLLECTION_CHROMA,
+        openai_collection_name: str = cfg.DEFAULT_NEWS_COLLECTION_OPENAI,
         collector: NewsCollector | None = None,
         scraper: ArticleScraper | None = None,
         chunker: NewsChunker | None = None,
@@ -50,11 +57,18 @@ class NewsIngestor(BaseIngestor):
         client_config = ChromaClientConfig.from_env()
         chroma_client = ChromaClientFactory.create(client_config)
 
-        emb_fn = embedding_functions.DefaultEmbeddingFunction()
-        self._collection: chromadb.Collection = chroma_client.get_or_create_collection(
-            name=collection_name,
-            embedding_function=emb_fn,
+        self._chroma_col: chromadb.Collection = chroma_client.get_or_create_collection(
+            name=chroma_collection_name,
+            embedding_function=embedding_functions.DefaultEmbeddingFunction(),
         )
+        self._openai_col: chromadb.Collection = chroma_client.get_or_create_collection(
+            name=openai_collection_name,
+            embedding_function=embedding_functions.OpenAIEmbeddingFunction(
+                api_key=os.environ["OPENAI_API_KEY"],
+                model_name="text-embedding-3-small",
+            ),
+        )
+        self._collections = [self._chroma_col, self._openai_col]
 
     def ingest(self, ticker: str, company_name: str) -> dict:
         """
@@ -85,8 +99,24 @@ class NewsIngestor(BaseIngestor):
         for item in articles:
             article_uuid = item["uuid"]
 
-            existing = self._collection.get(where={"original_uuid": article_uuid}, limit=1)
-            if existing["ids"]:
+            # Skip only when this (article, ticker) pair already exists in BOTH
+            # collections. Scoping by ticker means the same article can be stored
+            # once per ticker it is relevant to — cross-ticker news stories (e.g.
+            # "AI chip stocks" appearing in both NVDA and AAPL feeds) will be
+            # ingested for each ticker so that per-ticker filtered queries work.
+            ticker_uuid_filter = {
+                "$and": [
+                    {"original_uuid": {"$eq": article_uuid}},
+                    {"ticker": {"$eq": ticker}},
+                ]
+            }
+            in_chroma = bool(
+                self._chroma_col.get(where=ticker_uuid_filter, limit=1)["ids"]
+            )
+            in_openai = bool(
+                self._openai_col.get(where=ticker_uuid_filter, limit=1)["ids"]
+            )
+            if in_chroma and in_openai:
                 stats["skipped"] += 1
                 continue
 
@@ -136,11 +166,19 @@ class NewsIngestor(BaseIngestor):
                 chunk["metadata"].update(sentiment_fields)
 
             if chunks:
-                self._collection.add(
-                    ids=[c["id"] for c in chunks],
-                    documents=[c["document"] for c in chunks],
-                    metadatas=[c["metadata"] for c in chunks],
-                )
+                # Add to each collection that does not already have this article
+                for collection, already_present in [
+                    (self._chroma_col, in_chroma),
+                    (self._openai_col, in_openai),
+                ]:
+                    if not already_present:
+                        collection.add(
+                            ids=[c["id"] for c in chunks],
+                            documents=[c["document"] for c in chunks],
+                            metadatas=[c["metadata"] for c in chunks],
+                        )
+                        print(f"         → written to '{collection.name}'")
+
                 stats[tier] += 1
                 stats["total_chunks"] += len(chunks)
 

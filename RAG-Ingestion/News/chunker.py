@@ -7,15 +7,19 @@ from shared import config as cfg
 
 class NewsChunker:
     """
-    Splits news article text into overlapping chunks using the same
-    RecursiveCharacterTextSplitter strategy as TenKChunker, so both
-    collections share identical chunk size and overlap settings.
+    Splits news article text into overlapping chunks using
+    RecursiveCharacterTextSplitter.
+
+    News-specific defaults (500 / 100) are intentionally smaller than the
+    10-K defaults (1000 / 200): news articles are shorter and more
+    conversational, so tighter chunks keep each piece focused on a single
+    idea and avoid one long article becoming a single wall-of-text chunk.
     """
 
     def __init__(
         self,
-        chunk_size: int = cfg.DEFAULT_CHUNK_SIZE,
-        chunk_overlap: int = cfg.DEFAULT_CHUNK_OVERLAP,
+        chunk_size: int = cfg.DEFAULT_NEWS_CHUNK_SIZE,
+        chunk_overlap: int = cfg.DEFAULT_NEWS_CHUNK_OVERLAP,
     ) -> None:
         self._splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
@@ -42,6 +46,9 @@ class NewsChunker:
             raw_chunks = [metadata.get("title", text)]
 
         original_uuid = metadata.get("original_uuid", str(uuid.uuid4()))
+        # Include ticker in the chunk ID so the same article stored for
+        # multiple tickers gets distinct IDs in the collection.
+        ticker = metadata.get("ticker", "unknown")
 
         result: list[dict] = []
         for idx, chunk in enumerate(raw_chunks):
@@ -54,7 +61,7 @@ class NewsChunker:
             }
             result.append(
                 {
-                    "id": f"{original_uuid}-{idx}",
+                    "id": f"{ticker}-{original_uuid}-{idx}",
                     "document": chunk,
                     "metadata": chunk_metadata,
                 }

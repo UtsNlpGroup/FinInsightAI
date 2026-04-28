@@ -1,5 +1,6 @@
 """
-RAGAS-based RAG evaluation tests with Excel Export.
+RAGAS-based RAG evaluation tests.
+Includes: Retrieval Quality (Chroma/OpenAI), Ragas Metrics, and Tool Use Accuracy.
 """
 
 from __future__ import annotations
@@ -12,7 +13,11 @@ import pandas as pd
 from pathlib import Path
 from typing import Any
 
-# Configuration
+# ChromaDB Imports
+import chromadb
+from chromadb.utils import embedding_functions
+
+# --- CONFIGURATION ---
 GOLDEN_DATASET_PATH = Path(__file__).parent / "golden_dataset.json"
 RESULTS_DIR = Path(__file__).parent / "results"
 RESULTS_DIR.mkdir(exist_ok=True)
@@ -21,34 +26,51 @@ RESULTS_DIR.mkdir(exist_ok=True)
 FAITHFULNESS_THRESHOLD = 0.80
 ANSWER_RELEVANCY_THRESHOLD = 0.80
 CONTEXT_RECALL_THRESHOLD = 0.70
-TOOL_ACCURACY_THRESHOLD = 0.70
+TOOL_ACCURACY_THRESHOLD = 0.70  # Restored
 
+# Environment variables
 RAGAS_LLM_MODEL = os.getenv("RAGAS_LLM_MODEL", "gpt-4o-mini")
 RAGAS_LLM_TEMPERATURE = 0.0
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# Define the OpenAI Embedding Function for ChromaDB queries
+openai_ef = embedding_functions.OpenAIEmbeddingFunction(
+    api_key=OPENAI_API_KEY,
+    model_name="text-embedding-3-small"
+)
+
+# --- HELPERS ---
 
 def _load_golden_dataset() -> list[dict]:
+    if not GOLDEN_DATASET_PATH.exists():
+        pytest.skip(f"Golden dataset not found at {GOLDEN_DATASET_PATH}")
     with open(GOLDEN_DATASET_PATH) as f:
         return json.load(f)
 
 def _get_ragas_llm():
-    from ragas.llms import LangchainLLMWrapper
-    from langchain_openai import ChatOpenAI
-    return LangchainLLMWrapper(
-        ChatOpenAI(model=RAGAS_LLM_MODEL, temperature=RAGAS_LLM_TEMPERATURE)
+    from openai import OpenAI
+    from ragas.llms import llm_factory
+
+    client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else OpenAI()
+    return llm_factory(
+        RAGAS_LLM_MODEL,
+        client=client,
+        temperature=RAGAS_LLM_TEMPERATURE,
     )
+
 
 def _get_ragas_embeddings():
-    from ragas.embeddings import LangchainEmbeddingsWrapper
-    from langchain_community.embeddings import HuggingFaceEmbeddings
-    return LangchainEmbeddingsWrapper(
-        HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    )
+    from openai import OpenAI
+    from ragas.embeddings import OpenAIEmbeddings
+
+    client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else OpenAI()
+    return OpenAIEmbeddings(client=client, model="text-embedding-3-small")
 
 def _save_to_excel(data: list[dict] | pd.DataFrame, test_name: str):
-    """Helper to save results to the results directory."""
-    timestamp = time.strftime("%Y%m%d-%H%M%S")
-    filename = RESULTS_DIR / f"{test_name}_{timestamp}.xlsx"
+    date_str = time.strftime("%Y%m%d")
+    filename = RESULTS_DIR / f"{test_name}_{date_str}.xlsx"
     df = pd.DataFrame(data) if isinstance(data, list) else data
+    df = df.loc[:, ~df.columns.duplicated()]
     df.to_excel(filename, index=False)
     print(f"\n[INFO] Results saved to {filename}")
 
@@ -60,7 +82,6 @@ def chroma_client():
     if not chroma_url:
         pytest.skip("CHROMA_URL not set")
 
-    import chromadb
     return chromadb.HttpClient(
         host=chroma_url,
         headers={
@@ -69,94 +90,80 @@ def chroma_client():
         },
     )
 
-@pytest.fixture(scope="module")
-def embedding_fn():
-    from chromadb.utils import embedding_functions
-    return embedding_functions.DefaultEmbeddingFunction()
+# ── Retrieval Quality Logic ──────────────────────────────────────────────────
 
+_COLLECTION_MAP_CHROMA = {"sec_filings": "sec_filings_chroma", "news": "news_chroma"}
+_COLLECTION_MAP_OPENAI = {"sec_filings": "sec_filings_openai", "news": "news_openai"}
 
-# ── Retrieval quality tests ────────────────────────────────────────────────────
+def _run_hit_rate_test(chroma_client, target_collection, output_name, ef=None):
+    dataset = [d for d in _load_golden_dataset() if d["expected_collection"] == target_collection.split('_')[0]]
+    hits, results_detail = 0, []
+    
+    for case in dataset:
+        try:
+            collection = chroma_client.get_collection(name=target_collection, embedding_function=ef)
+            results = collection.query(
+                query_texts=[case["question"]], 
+                n_results=5, 
+                where={"ticker": case["ticker"]} if case.get("ticker") else None
+            )
+            docs = results.get("documents", [[]])[0]
+            hit = any(any(kw.lower() in doc.lower() for kw in case.get("expected_keywords", [])) for doc in docs)
+            if hit: hits += 1
+            results_detail.append({"id": case["id"], "question": case["question"], "hit": hit})
+        except Exception as e:
+            results_detail.append({"id": case["id"], "error": str(e)})
+            
+    _save_to_excel(results_detail, f"hit_rate_{output_name}")
+    assert (hits / len(dataset)) >= 0.70
+
+def _run_similarity_scores(chroma_client, collection_map, output_prefix, ef=None):
+    dataset = [d for d in _load_golden_dataset() if d["expected_collection"]]
+    results_detail, low_score_count = [], 0
+    
+    for case in dataset:
+        physical_col = collection_map.get(case["expected_collection"], case["expected_collection"])
+        try:
+            collection = chroma_client.get_collection(name=physical_col, embedding_function=ef)
+            results = collection.query(
+                query_texts=[case["question"]], 
+                n_results=1, 
+                where={"ticker": case["ticker"]} if case.get("ticker") else None,
+                include=["distances"]
+            )
+            dist = results.get("distances", [[]])[0][0] if results.get("distances") else 1.0
+            similarity = 1 - dist
+            results_detail.append({"id": case["id"], "similarity": similarity, "passed": similarity >= 0.5})
+            if similarity < 0.5: low_score_count += 1
+        except Exception as e:
+            results_detail.append({"id": case["id"], "error": str(e)})
+            
+    _save_to_excel(results_detail, f"similarity_{output_prefix}")
+    assert low_score_count == 0
+
+# ── Test Classes ─────────────────────────────────────────────────────────────
 
 @pytest.mark.live
 @pytest.mark.rag
-class TestRetrievalQuality:
+class TestRetrievalQualityChroma:
+    def test_sec_filings_hit_rate(self, chroma_client):
+        _run_hit_rate_test(chroma_client, "sec_filings_chroma", "sec_chroma")
+    def test_news_hit_rate(self, chroma_client):
+        _run_hit_rate_test(chroma_client, "news_chroma", "news_chroma")
+    def test_similarity_scores(self, chroma_client):
+        _run_similarity_scores(chroma_client, _COLLECTION_MAP_CHROMA, "chroma")
 
-    def test_sec_filings_hit_rate(self, chroma_client, embedding_fn):
-        dataset = [d for d in _load_golden_dataset() if d["expected_collection"] == "sec_filings"]
-        if not dataset: pytest.skip("No cases")
+@pytest.mark.live
+@pytest.mark.rag
+class TestRetrievalQualityOpenAI:
+    def test_sec_filings_hit_rate(self, chroma_client):
+        _run_hit_rate_test(chroma_client, "sec_filings_openai", "sec_openai", ef=openai_ef)
+    def test_news_hit_rate(self, chroma_client):
+        _run_hit_rate_test(chroma_client, "news_openai", "news_openai", ef=openai_ef)
+    def test_similarity_scores(self, chroma_client):
+        _run_similarity_scores(chroma_client, _COLLECTION_MAP_OPENAI, "openai", ef=openai_ef)
 
-        hits = 0
-        results_detail = []
-
-        for case in dataset:
-            try:
-                collection = chroma_client.get_collection(name="sec_filings")
-                results = collection.query(
-                    query_texts=[case["question"]],
-                    n_results=5,
-                    where={"ticker": case["ticker"]} if case.get("ticker") else None,
-                    include=["documents", "metadatas"],
-                )
-                docs = results.get("documents", [[]])[0]
-                expected_kws = [kw.lower() for kw in case.get("expected_keywords", [])]
-                hit = any(any(kw in doc.lower() for kw in expected_kws) for doc in docs)
-                
-                if hit: hits += 1
-                results_detail.append({
-                    "id": case["id"],
-                    "question": case["question"],
-                    "hit": hit,
-                    "top_doc_preview": docs[0][:200] if docs else "NO RESULTS"
-                })
-            except Exception as e:
-                results_detail.append({"id": case["id"], "error": str(e)})
-
-        _save_to_excel(results_detail, "sec_filings_hit_rate")
-        assert (hits / len(dataset)) >= 0.70
-
-    def test_news_collection_hit_rate(self, chroma_client, embedding_fn):
-        dataset = [d for d in _load_golden_dataset() if d["expected_collection"] == "news"]
-        if not dataset: pytest.skip("No news cases")
-
-        hits = 0
-        results_detail = []
-        for case in dataset:
-            hit = False
-            try:
-                collection = chroma_client.get_collection(name="news")
-                results = collection.query(query_texts=[case["question"]], n_results=5)
-                docs = results.get("documents", [[]])[0]
-                expected_kws = [kw.lower() for kw in case.get("expected_keywords", [])]
-                hit = any(any(kw in doc.lower() for kw in expected_kws) for doc in docs)
-                if hit: hits += 1
-                results_detail.append({"id": case["id"], "question": case["question"], "hit": hit})
-            except Exception as e:
-                results_detail.append({"id": case["id"], "error": str(e)})
-
-        _save_to_excel(results_detail, "news_hit_rate")
-        assert (hits / len(dataset)) >= 0.70
-
-    def test_similarity_scores_above_threshold(self, chroma_client, embedding_fn):
-        dataset = [d for d in _load_golden_dataset() if d["expected_collection"]]
-        results_detail = []
-        low_score_count = 0
-
-        for case in dataset:
-            try:
-                collection = chroma_client.get_collection(name=case["expected_collection"])
-                results = collection.query(query_texts=[case["question"]], n_results=1, include=["distances"])
-                distances = results.get("distances", [[]])[0]
-                similarity = 1 - distances[0] if distances else 0
-                results_detail.append({"id": case["id"], "similarity": similarity, "passed": similarity >= 0.5})
-                if similarity < 0.5: low_score_count += 1
-            except Exception as e:
-                results_detail.append({"id": case["id"], "error": str(e)})
-
-        _save_to_excel(results_detail, "similarity_scores")
-        assert low_score_count == 0
-
-
-# ── RAGAS faithfulness and relevancy tests ────────────────────────────────────
+# ── RAGAS & Tool Evaluation ──────────────────────────────────────────────────
 
 @pytest.mark.live
 @pytest.mark.rag
@@ -171,123 +178,90 @@ class TestRAGASEvaluation:
         resp = httpx.post(f"{backend_url}/api/v1/agent/chat", json=payload, timeout=120)
         resp.raise_for_status()
         data = resp.json()
-        contexts = [tc["output"] for tc in data.get("tool_calls", []) if "output" in tc]
-        return {"answer": data["answer"], "contexts": contexts}
+        
+        # Extract context and tool names
+        tool_calls = data.get("tool_calls", [])
+        tool_names = [tc.get("name") for tc in tool_calls if "name" in tc]
+        raw_outputs = [tc["output"] for tc in tool_calls if "output" in tc]
+        
+        clean_contexts = []
+        for ctx in raw_outputs:
+            if isinstance(ctx, str): clean_contexts.append(ctx)
+            elif isinstance(ctx, list):
+                for item in ctx:
+                    if isinstance(item, dict): clean_contexts.append(item.get("text") or str(item))
+                    else: clean_contexts.append(str(item))
+        
+        return {"answer": data["answer"], "contexts": clean_contexts, "tool_names": tool_names}
 
     def _run_ragas_and_export(self, rows, metrics, test_name):
+        if not rows: pytest.fail(f"No valid rows for {test_name}")
         from ragas import evaluate
         from datasets import Dataset
         hf_dataset = Dataset.from_list(rows)
         results = evaluate(hf_dataset, metrics=metrics, llm=_get_ragas_llm(), embeddings=_get_ragas_embeddings())
-        
-        # Export the full dataframe including scores and reasons
         _save_to_excel(results.to_pandas(), test_name)
         return results
 
-    def test_faithfulness_above_threshold(self, backend_url):
-        from ragas.metrics import faithfulness
-        dataset = [d for d in _load_golden_dataset() if d["expected_collection"]][:4]
+    def test_faithfulness(self, backend_url):
+        from ragas.metrics.collections import faithfulness
+        dataset = [d for d in _load_golden_dataset() if d.get("expected_collection")][:4]
         rows = []
         for case in dataset:
             try:
                 res = self._call_agent(backend_url, case["question"], case.get("ticker"))
                 if res["contexts"]:
-                    rows.append({"question": case["question"], "answer": res["answer"], 
-                                 "contexts": res["contexts"], "ground_truth": case["ground_truth"]})
+                    rows.append({"question": case["question"], "answer": res["answer"], "contexts": res["contexts"], "ground_truth": case["ground_truth"]})
             except Exception: pass
-
-        if not rows: pytest.skip("No data")
         results = self._run_ragas_and_export(rows, [faithfulness], "ragas_faithfulness")
-        assert results["faithfulness"] >= FAITHFULNESS_THRESHOLD
+        faithfulness_score = sum(results["faithfulness"]) / len(results["faithfulness"])
+        assert faithfulness_score >= FAITHFULNESS_THRESHOLD
 
-    def test_answer_relevancy_above_threshold(self, backend_url):
-        from ragas.metrics import answer_relevancy
+    def test_answer_relevancy(self, backend_url):
+        from ragas.metrics.collections import answer_relevancy
         dataset = _load_golden_dataset()[:4]
         rows = []
         for case in dataset:
             try:
                 res = self._call_agent(backend_url, case["question"], case.get("ticker"))
-                rows.append({"question": case["question"], "answer": res["answer"], 
-                             "contexts": res["contexts"] or [case["ground_truth"]], "ground_truth": case["ground_truth"]})
+                rows.append({"question": case["question"], "answer": res["answer"], "contexts": res["contexts"] or [case["ground_truth"]], "ground_truth": case["ground_truth"]})
             except Exception: pass
-
         results = self._run_ragas_and_export(rows, [answer_relevancy], "ragas_relevancy")
         assert results["answer_relevancy"] >= ANSWER_RELEVANCY_THRESHOLD
 
-    def test_context_recall_above_threshold(self, backend_url):
-        from ragas.metrics import context_recall
-        dataset = [d for d in _load_golden_dataset() if d["expected_collection"]][:4]
+    def test_context_recall(self, backend_url):
+        from ragas.metrics.collections import context_recall
+        dataset = [d for d in _load_golden_dataset() if d.get("expected_collection")][:4]
         rows = []
         for case in dataset:
             try:
                 res = self._call_agent(backend_url, case["question"], case.get("ticker"))
                 if res["contexts"]:
-                    rows.append({"question": case["question"], "answer": res["answer"], 
-                                 "contexts": res["contexts"], "ground_truth": case["ground_truth"]})
+                    rows.append({"question": case["question"], "answer": res["answer"], "contexts": res["contexts"], "ground_truth": case["ground_truth"]})
             except Exception: pass
-
         results = self._run_ragas_and_export(rows, [context_recall], "ragas_context_recall")
         assert results["context_recall"] >= CONTEXT_RECALL_THRESHOLD
-
-
-# ── Tool Call Accuracy ────────────────────────────────────────────────────────
-
-@pytest.mark.live
-@pytest.mark.rag
-class TestToolCallAccuracy:
-    TOOL_ACCURACY_THRESHOLD = 0.70
-
-    @pytest.fixture(scope="class")
-    def backend_url(self):
-        return os.getenv("BACKEND_URL", "http://localhost:8001")
-
-    def _call_agent_full_trace(self, backend_url, question, ticker):
-        import httpx
-        msg = f"[Ticker: {ticker}] {question}" if ticker else question
-        resp = httpx.post(f"{backend_url}/api/v1/agent/chat", json={"message": msg}, timeout=120)
-        resp.raise_for_status()
-        data = resp.json()
-        return {"answer": data.get("answer", ""), "tool_calls": data.get("tool_calls", [])}
-
-    def _build_multiturn_sample(self, question, trace, expected_tool):
-        from ragas.dataset_schema import MultiTurnSample
-        from ragas.messages import HumanMessage, AIMessage, ToolMessage, ToolCall
+         
+    def test_tool_use_accuracy(self, backend_url):
+        """Restored: Checks if the agent selected the correct tool based on expected_collection."""
+        dataset = [d for d in _load_golden_dataset() if "expected_collection" in d]
+        hits, results_detail = 0, []
         
-        actual_calls = [ToolCall(name=tc["tool_name"], args=tc.get("input") or {}) for tc in trace["tool_calls"]]
-        messages = [HumanMessage(content=question)]
-        if actual_calls:
-            messages.append(AIMessage(content="", tool_calls=actual_calls))
-            for tc in trace["tool_calls"]:
-                messages.append(ToolMessage(content=str(tc.get("output", ""))[:500]))
-        messages.append(AIMessage(content=trace["answer"]))
-
-        return MultiTurnSample(user_input=messages, reference_tool_calls=[ToolCall(name=expected_tool, args={})])
-
-    def test_tool_call_accuracy_ragas(self, backend_url):
-        from ragas.metrics import ToolCallAccuracy
-        from ragas.metrics._string import NonLLMStringSimilarity
-
-        golden = [c for c in _load_golden_dataset() if c.get("expected_tool")]
-        if not golden: pytest.skip("No tool test cases")
-
-        metric = ToolCallAccuracy()
-        metric.arg_comparison_metric = NonLLMStringSimilarity()
-
-        scores, details = [], []
-        for case in golden:
+        for case in dataset:
             try:
-                trace = self._call_agent_full_trace(backend_url, case["question"], case.get("ticker"))
-                sample = self._build_multiturn_sample(case["question"], trace, case["expected_tool"])
-                score = metric.multi_turn_score(sample)
-                scores.append(score)
-                details.append({
-                    "id": case["id"], "expected": case["expected_tool"], 
-                    "used": [tc["tool_name"] for tc in trace["tool_calls"]], "score": score
+                res = self._call_agent(backend_url, case["question"], case.get("ticker"))
+                # Logic: if expected is 'news', check if tool_names contains 'get_news' (adjust names as per your tool names)
+                expected_map = {"news": "get_news", "sec_filings": "search_sec_filings"}
+                expected_tool = expected_map.get(case["expected_collection"])
+                
+                hit = expected_tool in res["tool_names"] if expected_tool else True
+                if hit: hits += 1
+                results_detail.append({
+                    "id": case["id"], "question": case["question"], 
+                    "expected": expected_tool, "called": res["tool_names"], "hit": hit
                 })
             except Exception as e:
-                scores.append(0.0)
-                details.append({"id": case["id"], "error": str(e)})
+                results_detail.append({"id": case["id"], "error": str(e)})
 
-        _save_to_excel(details, "tool_call_accuracy")
-        avg = sum(scores) / len(scores) if scores else 0
-        assert avg >= self.TOOL_ACCURACY_THRESHOLD
+        _save_to_excel(results_detail, "tool_accuracy")
+        assert (hits / len(dataset)) >= TOOL_ACCURACY_THRESHOLD

@@ -21,6 +21,8 @@ services:
     volumes:
       # Hot reload – mount source so watchfiles picks up changes
       - ./MCP/server.py:/app/server.py
+      # Mount .env so load_dotenv(Path(__file__).parent / ".env") resolves to /app/.env
+      - ./MCP/.env:/app/.env:ro
       # Shared Chroma ONNX model cache – prevents re-downloading on every restart
       - chroma-onnx-cache:/root/.cache/chroma
     command: watchfiles --filter python "python server.py"
@@ -61,9 +63,16 @@ services:
     volumes:
       # Hot reload – mount app source so uvicorn --reload picks up changes
       - ./backend/app:/app/app
+      # Mount .env so pydantic-settings can read it from /app/.env (CWD)
+      - ./backend/.env:/app/.env:ro
       # Shared Chroma ONNX model cache – prevents re-downloading on every restart
       - chroma-onnx-cache:/root/.cache/chroma
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude '*.pyc' --reload-exclude '__pycache__' --reload-exclude '*__init__.py'
+    command: >
+      sh -c "sleep 5 && uvicorn app.main:app --host 0.0.0.0 --port 8000
+             --reload --reload-delay 3
+             --reload-exclude '*.pyc'
+             --reload-exclude '__pycache__'
+             --reload-exclude '*__init__.py'"
     ports:
       - "8001:8000"
     healthcheck:
@@ -71,7 +80,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 60s
 
   # ──────────────────────────────────────────────────────────────────────────
   # Frontend – Vite / React SPA served by Nginx

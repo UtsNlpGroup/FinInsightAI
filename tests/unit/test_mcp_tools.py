@@ -167,17 +167,17 @@ class TestVectorStoreInput:
 
     def test_valid_news_collection_accepted(self):
         from server import VectorStoreInput
-        inp = VectorStoreInput(collection_name="news", query_text="AAPL earnings")
-        assert inp.collection_name == "news"
+        inp = VectorStoreInput(collection_name="news_openai", query_text="AAPL earnings")
+        assert inp.collection_name == "news_openai"
 
     def test_valid_sec_filings_collection_accepted(self):
         from server import VectorStoreInput
-        inp = VectorStoreInput(collection_name="sec_filings", query_text="risk factors")
-        assert inp.collection_name == "sec_filings"
+        inp = VectorStoreInput(collection_name="sec_filings_openai", query_text="risk factors")
+        assert inp.collection_name == "sec_filings_openai"
 
     def test_n_results_defaults_to_five(self):
         from server import VectorStoreInput
-        inp = VectorStoreInput(collection_name="news", query_text="test")
+        inp = VectorStoreInput(collection_name="news_openai", query_text="test")
         assert inp.n_results == 5
 
     def test_n_results_above_max_raises(self):
@@ -185,4 +185,4 @@ class TestVectorStoreInput:
         from server import VectorStoreInput
 
         with pytest.raises(ValidationError):
-            VectorStoreInput(collection_name="news", query_text="test", n_results=51)
+            VectorStoreInput(collection_name="news_openai", query_text="test", n_results=51)

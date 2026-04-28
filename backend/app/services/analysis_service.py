@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 _OUTLOOK_PROMPT = """You are a senior financial analyst.
 
 For the company with ticker {ticker}:
-1. Use the vector_store tool with collection_name="sec_filings", query_text="10-K highlights strategic initiatives financial performance {ticker}", n_results=5 to retrieve key filing content.
+1. Use the vector_store tool with collection_name="sec_filings_openai", query_text="10-K highlights strategic initiatives financial performance {ticker}", n_results=5 to retrieve key filing content.
 2. Use get_company_financials to get current market data and analyst sentiment.
 
 Then produce EXACTLY ONE sentence (maximum 45 words) that synthesises:
@@ -60,7 +60,7 @@ Return ONLY a raw JSON object — no markdown fences, no other text:
 _RISKS_PROMPT = """You are a senior financial analyst performing a risk assessment.
 
 For the company with ticker {ticker}:
-1. Use the vector_store tool with collection_name="sec_filings", query_text="risk factors challenges threats {ticker} 10-K", n_results=8 to retrieve risk-related content from the filing.
+1. Use the vector_store tool with collection_name="sec_filings_openai", query_text="risk factors challenges threats {ticker} 10-K", n_results=8 to retrieve risk-related content from the filing.
 2. Use get_company_financials to enrich the picture with current market context if relevant.
 
 Extract the 5–8 most significant risk factors mentioned or implied. Return them as a JSON array with this EXACT structure — no other text, no markdown fences:
@@ -77,7 +77,7 @@ Return ONLY the raw JSON array."""
 _GROWTH_STRATEGIES_PROMPT = """You are a senior financial analyst.
 
 For the company with ticker {ticker}:
-1. Use the vector_store tool with collection_name="sec_filings", query_text="revenue growth drivers market expansion strategy TAM new products segments {ticker} 10-K MD&A", n_results=8 to retrieve growth and strategy content.
+1. Use the vector_store tool with collection_name="sec_filings_openai", query_text="revenue growth drivers market expansion strategy TAM new products segments {ticker} 10-K MD&A", n_results=8 to retrieve growth and strategy content.
 2. Optionally use get_company_financials for recent performance context.
 
 Produce 5–8 insight cards describing growth strategies, market expansion, product initiatives, and revenue drivers grounded in the filing.
@@ -94,7 +94,7 @@ Return ONLY a raw JSON array — no markdown fences:
 _CAPEX_PROMPT = """You are a senior financial analyst.
 
 For the company with ticker {ticker}:
-1. Use the vector_store tool with collection_name="sec_filings", query_text="capital expenditures CapEx PP&E property plant equipment investing cash flow facilities {ticker} 10-K", n_results=8 to retrieve capital spending and investment disclosures.
+1. Use the vector_store tool with collection_name="sec_filings_openai", query_text="capital expenditures CapEx PP&E property plant equipment investing cash flow facilities {ticker} 10-K", n_results=8 to retrieve capital spending and investment disclosures.
 2. Optionally use get_company_financials if relevant.
 
 Produce 5–8 insight cards on capital expenditure levels, major investments, facility or cloud infrastructure spend, and how cash is deployed for growth — grounded in the filing.
@@ -111,7 +111,7 @@ Return ONLY a raw JSON array — no markdown fences:
 _AI_THEMES_PROMPT = """You are a senior financial analyst.
 
 For the company with ticker {ticker}:
-1. Use the vector_store tool with collection_name="news", query_text="themes trends topics {ticker} news analysis outlook", ticker="{ticker}", n_results=15 to retrieve recent news and sentiment data.
+1. Use the vector_store tool with collection_name="news_openai", query_text="themes trends topics {ticker} news analysis outlook", ticker="{ticker}", n_results=15 to retrieve recent news and sentiment data.
 
 From the retrieved documents, extract 5–8 recurring themes, topics, or narratives that dominate the coverage (e.g. "Services Growth", "AI Integration", "Margin Pressure", "Antitrust Risk", "FSD Update").
 
@@ -122,7 +122,7 @@ Return ONLY a raw JSON array of short theme strings (2–4 words each) — no pr
 _SENTIMENT_DIVERGENCE_PROMPT = """You are a senior financial analyst.
 
 For the company with ticker {ticker}:
-1. Use the vector_store tool with collection_name="news", query_text="{ticker} market sentiment news analysis", ticker="{ticker}", n_results=20 to retrieve a broad set of news and sentiment data.
+1. Use the vector_store tool with collection_name="news_openai", query_text="{ticker} market sentiment news analysis", ticker="{ticker}", n_results=20 to retrieve a broad set of news and sentiment data.
 
 Count the total number of documents retrieved. For each document, classify its sentiment as "bullish", "neutral", or "bearish" based on its content and any sentiment metadata.
 
@@ -141,7 +141,7 @@ The three percentages must add up to 100. If no documents are found, return equa
 _MARKET_NEWS_PROMPT = """You are a senior financial analyst.
 
 For the company with ticker {ticker}:
-1. Use the vector_store tool with collection_name="news", query_text="{ticker} latest news headlines market updates", ticker="{ticker}", n_results=8 to retrieve recent news items.
+1. Use the vector_store tool with collection_name="news_openai", query_text="{ticker} latest news headlines market updates", ticker="{ticker}", n_results=8 to retrieve recent news items.
 
 For each document returned, extract:
 - title: the headline or main topic (from the document text)

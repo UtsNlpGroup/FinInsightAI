@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Any, Literal
 
 import pandas as pd
@@ -27,7 +28,10 @@ from dotenv import load_dotenv
 from fastmcp import FastMCP
 from pydantic import BaseModel, Field
 
-load_dotenv()
+# Load .env relative to this file so it works both locally and in Docker when the
+# file is present (Docker Compose env_file already injects vars at OS level, so
+# this is a no-op there because load_dotenv() never overrides existing env vars).
+load_dotenv(Path(__file__).parent / ".env")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s – %(message)s")
 logger = logging.getLogger("finsightai.mcp")
@@ -56,7 +60,7 @@ async def health_check(request):
 # ---------------------------------------------------------------------------
 
 _CHROMA_URL        = os.getenv("CHROMA_URL", "")
-_DEFAULT_COLLECTION = os.getenv("CHROMA_DEFAULT_COLLECTION", "news")
+_DEFAULT_COLLECTION = os.getenv("CHROMA_DEFAULT_COLLECTION", "news_openai")
 _CF_CLIENT_ID      = os.getenv("CF-ACCESS-CLIENT-ID", "")
 _CF_CLIENT_SECRET  = os.getenv("CF-ACCESS-CLIENT-SECRET", "")
 _OPENAI_API_KEY    = os.getenv("OPENAI_API_KEY", "")
@@ -86,14 +90,15 @@ def _get_chroma_client() -> chromadb.ClientAPI:
 def _get_embedding_fn() -> Any:
     """
     Return an embedding function.
-    Prefers OpenAI embeddings when OPENAI_API_KEY is set,
-    otherwise falls back to the lightweight default (all-MiniLM-L6-v2).
+    Uses OpenAI text-embedding-3-small when OPENAI_API_KEY is set (required for
+    the *_openai collections).  Falls back to the lightweight all-MiniLM-L6-v2
+    default only when no API key is available.
     """
-    # if _OPENAI_API_KEY:
-    #     return embedding_functions.OpenAIEmbeddingFunction(
-    #         api_key=_OPENAI_API_KEY,
-    #         model_name="text-embedding-3-small",
-    #     )
+    if _OPENAI_API_KEY:
+        return embedding_functions.OpenAIEmbeddingFunction(
+            api_key=_OPENAI_API_KEY,
+            model_name="text-embedding-3-small",
+        )
     return embedding_functions.DefaultEmbeddingFunction()
 
 
@@ -654,13 +659,13 @@ def get_portfolio() -> PortfolioSnapshot:
 # ---------------------------------------------------------------------------
 
 class VectorStoreInput(BaseModel):
-    collection_name: Literal["news", "sec_filings"] = Field(
+    collection_name: Literal["news_openai", "sec_filings_openai"] = Field(
         default=_DEFAULT_COLLECTION,
         description=(
             "ChromaDB collection to query. Choose based on the question type:\n"
-            "• 'news' – market sentiment, news headlines, earnings call summaries, "
+            "• 'news_openai' – market sentiment, news headlines, earnings call summaries, "
             "analyst commentary, and press releases.\n"
-            "• 'sec_filings' – SEC 10-K annual filings: business descriptions, risk factors, "
+            "• 'sec_filings_openai' – SEC 10-K annual filings: business descriptions, risk factors, "
             "MD&A sections, and audited financial statements."
         ),
     )

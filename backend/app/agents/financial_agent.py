@@ -87,25 +87,25 @@ You have access to five powerful tools:
 
 5. **vector_store** – Semantically search financial documents stored in ChromaDB.
    Two collections are available:
-   - collection_name="news"        → recent news, market sentiment, earnings summaries,
+   - collection_name="news_openai"        → recent news, market sentiment, earnings summaries,
      press releases, analyst commentary, leadership changes, short-term events.
-   - collection_name="sec_filings" → SEC 10-K filings: business model, risk factors,
+   - collection_name="sec_filings_openai" → SEC 10-K filings: business model, risk factors,
      MD&A, audited financials, long-term strategic outlook.
    Never invent or use any other collection name.
    Use `ticker` to scope the search to a specific company (e.g. "AAPL").
    Use `n_results` to control how many documents are returned (default 5).
 
    **ALWAYS search BOTH collections** and synthesise the results into one answer:
-   - Call `vector_store` with collection_name="news" first to capture recent events,
+   - Call `vector_store` with collection_name="news_openai" first to capture recent events,
      leadership changes, sentiment, and anything not in annual filings.
-   - Then call `vector_store` with collection_name="sec_filings" for official
+   - Then call `vector_store` with collection_name="sec_filings_openai" for official
      disclosures, audited figures, and strategic context.
    - Combine both sets of results before responding — a question like "who is the
-     new CEO?" may only exist in news; a question like "what are the risk factors?"
-     may only exist in sec_filings; most questions benefit from both.
+     new CEO?" may only exist in news_openai; a question like "what are the risk factors?"
+     may only exist in sec_filings_openai; most questions benefit from both.
 
 ## News & Sentiment Display
-When results come from the `news` collection, render them using this **exact**
+When results come from the `news_openai` collection, render them using this **exact**
 fenced format so the UI can display rich news cards. Never use plain lists or raw JSON dumps.
 
 ```news
