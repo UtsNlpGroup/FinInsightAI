@@ -511,15 +511,16 @@ All nine evaluated metrics pass their acceptance thresholds.
 
 | # | Test | Score | Threshold | Margin | Status |
 |---|---|---|---|---|---|
-| 1 | Similarity pass-rate — Chroma | 87.50% | 50% | +37.50 pp | ✅ PASS |
+| 1 | Similarity pass-rate — Hugging Face open-source model | 87.50% | 50% | +37.50 pp | ✅ PASS |
 | 2 | Similarity pass-rate — OpenAI | 100.00% | 50% | +50.00 pp | ✅ PASS |
-| 3 | Hit rate — SEC Filings (Chroma) | 90.00% | 70% | +20.00 pp | ✅ PASS |
+| 3 | Hit rate — SEC Filings (Hugging Face open-source model) | 90.00% | 70% | +20.00 pp | ✅ PASS |
 | 4 | Hit rate — SEC Filings (OpenAI) | 100.00% | 70% | +30.00 pp | ✅ PASS |
-| 5 | Hit rate — News (Chroma) | 100.00% | 70% | +30.00 pp | ✅ PASS |
+| 5 | Hit rate — News (Hugging Face open-source model) | 100.00% | 70% | +30.00 pp | ✅ PASS |
 | 6 | Hit rate — News (OpenAI) | 100.00% | 70% | +30.00 pp | ✅ PASS |
 | 7 | RAGAS Faithfulness | 43.26% | 40% | +3.26 pp | ✅ PASS |
 | 8 | RAGAS Answer Relevancy | 73.33% | 60% | +13.33 pp | ✅ PASS |
 | 9 | Tool Call Accuracy | 95.00% | 80% | +15.00 pp | ✅ PASS |
+| 10 | Agent response time pass-rate (≤ 10 s SLA) | 95.20% | 90% | +5.20 pp | ✅ PASS |
 
 All retrieval metrics (cosine similarity, hit rate) and the tool-routing metric exceed their thresholds by a comfortable margin. The generation-quality metrics (faithfulness, answer relevancy) pass with a narrower margin, which is expected for a domain-specific financial RAG system where the LLM supplements retrieved context with parametric knowledge.
 
