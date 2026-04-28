@@ -21,7 +21,30 @@ FinsightAI is an AI-powered financial insights platform built as a full-stack, c
 
 ---
 
-<img width="2816" height="1536" alt="Gemini_Generated_Image_8otnjj8otnjj8otn" src="https://github.com/user-attachments/assets/5abd9797-f665-464a-97d1-39a1f23adaee" /><img width="1393" height="925" alt="Screenshot 2026-04-28 at 8 57 15 PM" src="https://github.com/user-attachments/assets/d414c7d9-7ada-4553-b6d0-6a757e889d25" />
+
+<div align="center">
+
+<img src="https://github.com/user-attachments/assets/fc1266c0-6da9-4a39-a828-40839d1e4cb6" width="100%" alt="System Dashboard Hero" style="border-radius: 10px; border: 1px solid #e1e4e8;" />
+
+<br/>
+
+<table border="0">
+  <tr>
+    <td width="50%"><img src="https://github.com/user-attachments/assets/3ba99227-b389-436d-80c1-a39bb781c1e1" alt="Sub-view 1" style="border-radius: 8px;"/></td>
+    <td width="50%"><img src="https://github.com/user-attachments/assets/717b44e0-44de-4811-bf6c-834ff4fdbaa7" alt="Sub-view 2" style="border-radius: 8px;"/></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="https://github.com/user-attachments/assets/29284ad8-58f6-47ca-ae7d-3ea603d6c244" alt="Sub-view 3" style="border-radius: 8px;"/></td>
+    <td width="50%"><img src="https://github.com/user-attachments/assets/76b14acb-8c48-4457-9084-532230f55676" alt="Sub-view 4" style="border-radius: 8px;"/></td>
+  </tr>
+</table>
+
+</div>
+
+
+<img width="1464" height="971" alt="Screenshot 2026-04-28 at 8 59 08 PM" src="https://github.com/user-attachments/assets/fc1266c0-6da9-4a39-a828-40839d1e4cb6" />
+
+
 
 <img width="1463" height="975" alt="Screenshot 2026-04-28 at 8 56 09 PM" src="https://github.com/user-attachments/assets/3ba99227-b389-436d-80c1-a39bb781c1e1" />
 <img width="1473" height="973" alt="Screenshot 2026-04-28 at 8 55 43 PM" src="https://github.com/user-attachments/assets/717b44e0-44de-4811-bf6c-834ff4fdbaa7" />
