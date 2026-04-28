@@ -2,7 +2,9 @@
 
 FinsightAI is an AI-powered financial insights platform built as a full-stack, containerised application. It combines a conversational React frontend, a FastAPI backend hosting a LangChain ReAct agent, a FastMCP tool server, and a remote ChromaDB vector store to deliver natural-language financial analysis backed by live market data and Retrieval-Augmented Generation (RAG) over SEC 10-K filings and financial news.
 
-**Live demo (frontend only):** [https://utsnlpgroup.github.io/FinInsightAI/](https://utsnlpgroup.github.io/FinInsightAI/)
+
+![Uploading Gemini_Generated_Image_8otnjj8otnjj8otn.png…]()
+
 
 ---
 
