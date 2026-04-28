@@ -172,7 +172,7 @@ FinsightAI uses distinct models for each role — inference, embedding, and sent
 | Model | Role | Collection | Notes |
 |---|---|---|---|
 | **OpenAI `text-embedding-3-small`** | Primary / production embeddings | `sec_filings_openai`, `news_openai` | Generates 1 536-dimension embeddings via the OpenAI API. Used for all production retrieval queries and for the `vector_store` MCP tool in the default configuration. Achieves 100% cosine-similarity pass-rate on the golden dataset. |
-| **Chroma default (`all-MiniLM-L6-v2`)** | Secondary / offline embeddings | `sec_filings_chroma`, `news_chroma` | 384-dimension sentence-transformer model bundled with ChromaDB. Runs locally with no API key required. Used as a fallback when the OpenAI API is unavailable and as the baseline in embedding-quality comparisons. Achieves 87.5% cosine-similarity pass-rate. |
+| **Hugging Face open-source model (`all-MiniLM-L6-v2`)** | Secondary / offline embeddings | `sec_filings_chroma`, `news_chroma` | 384-dimension sentence-transformer model bundled with ChromaDB. Runs locally with no API key required. Used as a fallback when the OpenAI API is unavailable and as the baseline in embedding-quality comparisons. Achieves 87.5% cosine-similarity pass-rate. |
 | **OpenAI `text-embedding-3-small`** | RAGAS evaluation embeddings | — | Also used inside the RAGAS framework itself for the answer-relevancy metric (embeds synthetic questions to measure alignment with the original query). |
 
 ### Sentiment (NLP)
@@ -300,7 +300,7 @@ ALPACA_API_KEY=<alpaca-paper-key>
 ALPACA_SECRET_KEY=<alpaca-paper-secret>
 
 # LLM configuration (optional – shown with defaults)
-LLM_MODEL=openai:gpt-4.1
+LLM_MODEL=openai:GPT-4o-mini
 LLM_TEMPERATURE=0.0
 LLM_MAX_TOKENS=4096
 AGENT_MAX_ITERATIONS=10
@@ -501,6 +501,8 @@ End-to-end latency from query submission to complete answer, measured over 21 te
 | **Max response time** | 14.99 s |
 | **Pass rate** (within time limit) | **95.2%** (20 / 21) |
 
+Per-query completion must fall within the **10 s** agent SLA (see Performance Tests). For the evaluation scorecard, the pass-rate acceptance threshold is **≥ 90%** of queries meeting that SLA.
+
 The single timeout failure occurs on a complex multi-tool query (SEC filings + live data + portfolio lookup) that requires three sequential tool calls. Simple queries (single tool) typically complete in 3–5 seconds.
 
 ---
@@ -522,7 +524,7 @@ All nine evaluated metrics pass their acceptance thresholds.
 | 9 | Tool Call Accuracy | 95.00% | 80% | +15.00 pp | ✅ PASS |
 | 10 | Agent response time pass-rate (≤ 10 s SLA) | 95.20% | 90% | +5.20 pp | ✅ PASS |
 
-All retrieval metrics (cosine similarity, hit rate) and the tool-routing metric exceed their thresholds by a comfortable margin. The generation-quality metrics (faithfulness, answer relevancy) pass with a narrower margin, which is expected for a domain-specific financial RAG system where the LLM supplements retrieved context with parametric knowledge.
+Retrieval metrics (cosine similarity, hit rate), agent response-time pass-rate (share of queries completing within the 10 s SLA), and the tool-routing metric exceed their thresholds by a comfortable margin. The generation-quality metrics (faithfulness, answer relevancy) pass with a narrower margin, which is expected for a domain-specific financial RAG system where the LLM supplements retrieved context with parametric knowledge.
 
 ---
 
