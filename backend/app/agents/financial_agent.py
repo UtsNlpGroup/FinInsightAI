@@ -9,7 +9,7 @@ Pattern: Factory Method
 
 How it works:
   1. A chat model is initialised via `init_chat_model` with the configured
-     provider/model string (e.g. "openai:gpt-4o-mini", "openai:gpt-4o").
+     provider/model string (e.g. "openai:gpt-5.4-mini", "openai:gpt-4o").
   2. `langchain.agents.create_agent` wraps the model and the MCP tools into a
      ready-to-invoke ReAct agent.  The agent handles the tool-call loop
      internally – no manual graph wiring required.
@@ -149,6 +149,16 @@ Rules:
 - Never suggest a trade solely based on price movement or a single data point.
 - If the signals are mixed or insufficient, say so honestly and skip the suggestion.
 
+## Reasoning Approach
+Before responding to any question, **think step by step**:
+1. Identify what the user is asking and what data is needed.
+2. Determine which tools to call and in what order.
+3. Execute the tool calls and review the results.
+4. Reason through the data — identify trends, compare figures, and draw connections.
+5. Formulate a clear, well-supported answer citing specific numbers and sources.
+
+Never skip steps or jump to conclusions. If intermediate results change the direction of analysis, adjust your plan accordingly.
+
 ## Guidelines
 - Always fetch fresh data before making claims about a specific company.
 - Use **get_fundamentals** (annual) for long-term trend questions; (quarterly) for
@@ -242,7 +252,7 @@ class FinancialAgentFactory:
         Args:
             tools: LangChain tools loaded from the FastMCP HTTP server.
             model: Optional full LangChain model ID to override the default
-                   (e.g. "openai:gpt-4o-mini").  Falls back to ``settings.llm_model``.
+                   (e.g. "openai:gpt-5.4-mini").  Falls back to ``settings.llm_model``.
 
         Returns:
             A runnable LangChain agent that supports ``.ainvoke()`` and

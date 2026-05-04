@@ -70,7 +70,7 @@ def _make_test_settings(**overrides) -> Settings:
         openai_api_key="sk-test-00000000000000000000000000000000",
         supabase_db_url="postgresql://test:test@localhost:5432/testdb",
         mcp_server_url="http://localhost:8080/mcp",
-        llm_model="openai:gpt-4o-mini",
+        llm_model="openai:gpt-5.4-mini",
         llm_temperature=0.0,
         llm_max_tokens=512,
     )
