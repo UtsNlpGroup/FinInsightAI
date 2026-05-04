@@ -100,7 +100,7 @@ class AgentService:
         Retrieve MCP tools and produce a ready-to-invoke LangChain agent.
 
         Args:
-            model: Optional LangChain model ID override (e.g. "openai:gpt-4o-mini").
+            model: Optional LangChain model ID override (e.g. "openai:gpt-5.4-mini").
                    Falls back to the server default when ``None``.
         """
         tools = self._mcp_manager.get_tools()

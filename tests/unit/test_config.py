@@ -94,8 +94,8 @@ class TestSettingsOverride:
     """Settings can be overridden via constructor arguments (useful in tests)."""
 
     def test_override_llm_model(self):
-        s = Settings(llm_model="openai:gpt-4o-mini")
-        assert s.llm_model == "openai:gpt-4o-mini"
+        s = Settings(llm_model="openai:gpt-5.4-mini")
+        assert s.llm_model == "openai:gpt-5.4-mini"
 
     def test_override_environment(self):
         s = Settings(environment="production")
