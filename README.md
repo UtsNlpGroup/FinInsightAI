@@ -142,7 +142,7 @@ finsightAI/
 | Frontend server | Nginx 1.27 |
 | Backend framework | FastAPI, Uvicorn |
 | AI agent | LangChain ReAct agent (`create_agent`) |
-| LLM | OpenAI GPT-4o-mini (configurable) |
+| LLM | OpenAI GPT-5.4-mini (configurable) |
 | MCP integration | FastMCP, `langchain-mcp-adapters` |
 | Vector store | ChromaDB (remote HTTP client) |
 | Embeddings | OpenAI `text-embedding-3-small` (primary), Chroma default (`all-MiniLM-L6-v2`) |
@@ -164,8 +164,8 @@ FinsightAI uses distinct models for each role — inference, embedding, and sent
 
 | Model | Role | Notes |
 |---|---|---|
-| **OpenAI GPT-4o-mini**| Production agent LLM | Drives the LangChain ReAct agent for all user-facing queries. Configured via `OPENAI_API_KEY` + `LLM_MODEL` env var. Used for tool selection, multi-step reasoning, and final answer generation. |
-| **OpenAI GPT-4o-mini** | RAG evaluation judge | Used exclusively by the RAGAS evaluation suite (`test_ragas_evaluation.py`) as the judge LLM for faithfulness and answer-relevancy scoring. Chosen for lower evaluation cost while retaining sufficient reasoning quality. |
+| **OpenAI GPT-5.4-mini**| Production agent LLM | Drives the LangChain ReAct agent for all user-facing queries. Configured via `OPENAI_API_KEY` + `LLM_MODEL` env var. Used for tool selection, multi-step reasoning, and final answer generation. |
+| **OpenAI GPT-5.4-mini** | RAG evaluation judge | Used exclusively by the RAGAS evaluation suite (`test_ragas_evaluation.py`) as the judge LLM for faithfulness and answer-relevancy scoring. Chosen for lower evaluation cost while retaining sufficient reasoning quality. |
 
 ### Embeddings
 
@@ -300,7 +300,7 @@ ALPACA_API_KEY=<alpaca-paper-key>
 ALPACA_SECRET_KEY=<alpaca-paper-secret>
 
 # LLM configuration (optional – shown with defaults)
-LLM_MODEL=openai:GPT-4o-mini
+LLM_MODEL=openai:gpt-5.4-mini
 LLM_TEMPERATURE=0.0
 LLM_MAX_TOKENS=4096
 AGENT_MAX_ITERATIONS=10
